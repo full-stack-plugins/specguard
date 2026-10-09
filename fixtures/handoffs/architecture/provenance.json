@@ -1,0 +1,11 @@
+{
+  "artifactDigest": "sha256:8ad90fab247f30dd951ecc6c0e5913da27e46802fd5dd51280e56ff9b2c08901",
+  "authentication": "existing explicit fixture ApprovalValidationPort; production unavailable",
+  "baselineDigest": "sha256:82b804c9a61cb334cdc1504decf4bdfde09dd35a7fd795627d79c48940369e91",
+  "candidateOid": "edc40f7ae3dcf2ad9dfb400a1d0b3598c87c16e8",
+  "commitObject": "tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904\nauthor fixture <fixture@example.invalid> 1791540840 +0000\ncommitter fixture <fixture@example.invalid> 1791540840 +0000\n\nfixture",
+  "generator": "cargo run --locked --example generate_architecture_handoff -- fixtures/handoffs/architecture",
+  "generatorCommit": "49ee46cdd0de402922904d901b07ab9c0054f25e",
+  "profile": "fixture-only-not-authenticated",
+  "sourceProfile": "actual-temp-git-with-frozen-dirty-source-bytes"
+}

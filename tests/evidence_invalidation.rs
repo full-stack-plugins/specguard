@@ -598,3 +598,121 @@ fn independent_targets_and_current_clock_failure_do_not_reuse_another_run() {
     );
     assert_eq!(authority.calls.get(), before);
 }
+
+#[test]
+fn independent_clock_rollback_does_not_revive_expired_current_eligibility() {
+    let (root, s) = snapshot(document().as_bytes());
+    let p = prepared(root.path(), &s, "rollback");
+    let policy = engine_policy(&p, &s);
+    let authority = authority(&policy);
+    authority.expires.set(NOW + 5);
+    let expected = CurrentExpectation::freeze(&p, 1, &policy, Profile::Fixture).unwrap();
+    let mut history = RunHistory::default();
+    let done = history
+        .register(p, 0)
+        .unwrap()
+        .execute("2026-10-09T10:00:01Z", &CancellationToken::new(), |_| {})
+        .unwrap();
+    history.append(&done).unwrap();
+    history.publish(&done).unwrap();
+    let clock = Clock(Cell::new(NOW));
+    assert!(
+        history
+            .consume_current(&expected, &authority, &clock, None)
+            .unwrap()
+            .eligible()
+    );
+    clock.0.set(NOW + 6);
+    assert!(
+        !history
+            .consume_current(&expected, &authority, &clock, None)
+            .unwrap()
+            .eligible()
+    );
+    clock.0.set(NOW + 1);
+    let rolled = history.consume_current(&expected, &authority, &clock, None);
+    assert!(
+        !rolled.is_ok_and(|r| r.eligible()),
+        "clock rollback revived previously expired current evidence"
+    );
+}
+#[test]
+fn slower_old_time_call_cannot_return_eligible_after_newer_failed_consumption() {
+    use std::sync::{Mutex, mpsc};
+    struct BlockingAuthority {
+        producer: Producer,
+        ready: mpsc::SyncSender<()>,
+        resume: Mutex<mpsc::Receiver<()>>,
+    }
+    impl AuthorityProvider for BlockingAuthority {
+        fn verify_producer(
+            &self,
+            _: &GuardRunEnvelope,
+            digest: &str,
+        ) -> Result<ProducerRecord, AuthorityError> {
+            self.ready.send(()).unwrap();
+            self.resume.lock().unwrap().recv().unwrap();
+            Ok(ProducerRecord {
+                principal: "fixture:sg".into(),
+                producer: self.producer.clone(),
+                envelope_digest: digest.into(),
+                validity: Validity {
+                    issued_at: 0,
+                    expires_at: i64::MAX,
+                    revoked: false,
+                },
+            })
+        }
+        fn verify_approval(&self, _: &str) -> Result<ApprovalRecord, AuthorityError> {
+            Err(AuthorityError::Untrusted)
+        }
+    }
+    let (root, s) = snapshot(document().as_bytes());
+    let prepared = prepared(root.path(), &s, "slow");
+    let policy = engine_policy(&prepared, &s);
+    let expected = CurrentExpectation::freeze(&prepared, 1, &policy, Profile::Fixture).unwrap();
+    let mut history = RunHistory::default();
+    let completed = history
+        .register(prepared, 0)
+        .unwrap()
+        .execute("2026-10-09T10:00:01Z", &CancellationToken::new(), |_| {})
+        .unwrap();
+    history.append(&completed).unwrap();
+    history.publish(&completed).unwrap();
+    let original = serde_json::to_vec(completed.output()).unwrap();
+    let (ready, observed) = mpsc::sync_channel(0);
+    let (resume, release) = mpsc::sync_channel(0);
+    let slow = BlockingAuthority {
+        producer: policy.producer.clone(),
+        ready,
+        resume: Mutex::new(release),
+    };
+    std::thread::scope(|scope| {
+        let worker =
+            scope.spawn(|| history.consume_current(&expected, &slow, &Clock(Cell::new(NOW)), None));
+        observed.recv().unwrap();
+        let fast = authority(&policy);
+        fast.expires.set(NOW + 5);
+        assert!(
+            !history
+                .consume_current(&expected, &fast, &Clock(Cell::new(NOW + 6)), None)
+                .unwrap()
+                .eligible()
+        );
+        resume.send(()).unwrap();
+        assert!(worker.join().unwrap().is_err());
+        fast.expires.set(i64::MAX);
+        assert!(
+            history
+                .consume_current(&expected, &fast, &Clock(Cell::new(NOW + 1)), None)
+                .is_err()
+        );
+        assert!(
+            history
+                .consume_current(&expected, &fast, &Clock(Cell::new(NOW + 6)), None)
+                .unwrap()
+                .eligible()
+        );
+    });
+    assert_eq!(serde_json::to_vec(completed.output()).unwrap(), original);
+}

@@ -162,6 +162,9 @@ pub struct RunHistory {
     order: Vec<String>,
     current: BTreeMap<RunTarget, String>,
     charged: usize,
+    // Shared by all targets in this process-local store. Failed assessments also
+    // advance time so rollback cannot revive their previously expired evidence.
+    consumption_time: std::sync::atomic::AtomicI64,
 }
 fn encoded_size(value: &impl Serialize) -> Result<usize, HistoryError> {
     struct Counter(usize);
@@ -436,6 +439,12 @@ impl RunHistory {
         if now < 0 {
             return Err(ConsumptionError::Clock);
         }
+        use std::sync::atomic::Ordering;
+        self.consumption_time
+            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |previous| {
+                (now >= previous).then_some(now)
+            })
+            .map_err(|_| ConsumptionError::Clock)?;
         match (&expected.policy.binding.baseline_digest, baseline) {
             (None, None) => {}
             (Some(digest), Some(check)) => {
@@ -487,6 +496,11 @@ impl RunHistory {
             now,
             None,
         );
+        // This is the assessment's linearization point. A slower call evaluated
+        // with older time cannot become eligible after a newer call advanced it.
+        if self.consumption_time.load(Ordering::Acquire) != now {
+            return Err(ConsumptionError::Clock);
+        }
         Ok(FixtureConsumption { assessment })
     }
 }

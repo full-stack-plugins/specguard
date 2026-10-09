@@ -10,3 +10,5 @@ pub mod source;
 pub mod trace;
 
 pub mod architecture;
+
+pub mod cli;

@@ -4,7 +4,7 @@
 
 **面向 AI 原生研发的确定性需求、规格与验收治理。**
 
-> **当前仅有设计文档。** 本次检查基于 `main` 提交 `01137804aa465c1b931c73c9d211ff0d29b46c7a`（检查日期 2026-10-09）。已跟踪文件只有两份 README 与两份设计文档，没有源码、包清单、测试、schema、CI 配置或 OpenSpec 工作区。下述 SpecGuard 能力与命令全部是目标方案，不代表已经实现。文档描述方向，不代表实施或验证已完成。
+> **本地实现，信任能力有限。** 当前分支已有 Rust 源码、可运行的只读 CLI、schema 和测试；独立验收情况见[任务清单](openspec/changes/add-specification-baseline-analysis/tasks.md)及[实施证据](docs/implementation-progress.md)。历史 `main` 提交 `01137804aa465c1b931c73c9d211ff0d29b46c7a` 仅有设计文档，该清单不描述当前实施分支。生产审批认证、托管门禁和正式分发仍未完成。
 
 ## 为什么需要 SpecGuard
 
@@ -31,7 +31,7 @@ AI 可以快速生成需求和任务，却不能证明需求范围被正确理�
 - 识别规格变更影响的架构、任务和测试义务，使旧证据失效。
 - 明确解释已分析范围、无法读取的来源以及需要人工判断的问题。
 
-输入为显式选择的规格源、候选快照、受保护策略，以及需要时的基线和经外部身份系统核验的审批记录。规划输出包括规格图、精确定位的发现、基线差异、覆盖清单以及兼容引擎的事实/报告引用。测试义务表示需要获得什么证据，不代表行为测试已经通过。
+输入为显式选择的规格源、候选快照、受保护策略，以及需要时的基线和经外部身份系统核验的审批记录。当前本地输出包括规格图、精确定位的发现、基线差异、覆盖清单以及兼容引擎的事实/报告引用。测试义务表示需要获得什么证据，不代表行为测试已经通过。
 
 SpecGuard 负责规格解析和领域检查；ArchGuard 负责架构检查；CodeGuard 负责代码检查；TestGuard 负责测试证据；GitGuard 负责 Git 检查；FlowGuard 编排门禁及可信审批核验。六个守卫独立使用 [GuardEngine](https://github.com/full-stack-plugins/guardengine)，由引擎负责通用合同校验、中立规则评估和确定性证据计算。SpecGuard 和引擎都不授予业务批准、合并或发布权限。
 
@@ -39,35 +39,37 @@ SpecGuard 负责规格解析和领域检查；ArchGuard 负责架构检查；Cod
 
 确定性违例可以映射为 `enforce`；语义不确定性采用 `review`；建议采用 `advise`。引擎决策为 `ALLOW`、`BLOCK`、`REQUIRE_APPROVAL`。partial 事实意味着 `BLOCK` 和 `INDETERMINATE` 评估，不能表示完整检查通过。“完整”仅指声明的分析器范围，不代表理解了全部业务。人工批准不能覆盖分析失败或覆盖不足。
 
-共享的当前 `guard.partme.ai/v1alpha1` 协议仅支持 GuardContract YAML、GuardFacts JSON、GuardReport JSON 和精确 `forbid_relation` 断言，拒绝未知字段。图集合量化检查应放在规划的 SpecGuard 领域验证器中；来源位置、审批和编排信息不能私自添加为引擎字段。报告无签名；verify 只重算结果，不证明信任或授权。以上是共享引擎兼容基线，并非本仓库已验证的 SpecGuard 集成。
+共享的当前 `guard.partme.ai/v1alpha1` 协议仅支持 GuardContract YAML、GuardFacts JSON、GuardReport JSON 和精确 `forbid_relation` 断言，拒绝未知字段。图集合量化检查应放在SpecGuard 领域验证器中；来源位置、审批和编排信息不能私自添加为引擎字段。报告无签名；verify 只重算结果，不证明信任或授权。本地生产者已生成并核验真实 GE 工件，见[冻结兼容能力](docs/frozen-integration-capabilities.md)；可复算不等于生产者认证。
 
-规划的[集成合同](docs/integration-contract.md)使用独立的 `GuardRunEnvelope`（`guard.integration/v1alpha1`，**草案**），不是当前引擎接受的扩展。结果必须绑定精确候选/base、任务和基线；绑定变化后证据失效。可信 CI 必须重新检查 merge queue 的精确合并候选。
+[集成合同](docs/integration-contract.md)使用独立的 `GuardRunEnvelope`（`guard.integration/v1alpha1`），本地适配已实现，不给引擎 contract/facts/report 私加字段。结果必须绑定精确候选/base、任务和基线；绑定变化后证据失效。可信 CI 必须重新检查 merge queue 的精确合并候选。
 
-## 规划接口——尚不可执行
+## 当前本地接口
+
+使用 `cargo build --locked --bin specguard` 构建，`cargo run --locked -- --help` 查看真实参数。
 
 ~~~sh
-specguard doctor --project .
-specguard scan --project . --source openspec --format json
-specguard trace --requirement REQ-017 --format json
-specguard diff --base <approved-ref> --head HEAD
-specguard check --project . --format json
+specguard doctor ROOT POLICY.json
+specguard scan ROOT POLICY.json BINDING.json REQUIRED.json
+specguard trace ROOT POLICY.json BINDING.json REQUIRED.json
+specguard diff ROOT POLICY.json BINDING.json BASELINE.json --unverified-baseline
+specguard check ROOT REQUEST.json [--cancel]
 ~~~
 
-目前没有实现这些命令的二进制或安装器。`check` 目标退出码为：`0` ALLOW、`2` BLOCK、`3` REQUIRE_APPROVAL、`4` 输入/运行/验证错误；其他命令的精确退出合同仍需定义。规划机器输出写入 stdout，诊断写入 stderr。没有已实现的 `--report` 参数。MCP 与 CI 属于后续目标，也尚未实现。
+精确约定见 [CLI 文档](docs/cli.md)与[实际进程测试](tests/cli_contract.rs)。已有 trace-check/trace-export 命令继续保留。当前 check 实测0 ALLOW、2 BLOCK、4错误/取消，JSON 写 stdout、诊断写 stderr。结构检查保持 Enforce-only，不会为制造退出码3而降级强制发现；REQUIRE_APPROVAL 仍未实测可达。diff 必须显式声明未认证基线；`--report` 被拒绝且不修改任何路径，旧文件不能代表本轮成功。
 
-OpenSpec、Spec Kit、Superpowers 及历史规格工作流插件适配均为**未经验证的兼容目标**，不意味着已经安装或成功测试外部插件。读取项目不能隐式初始化工具、下载依赖、发放批准或修改规格。
+明确版本的 Markdown 和固定 OpenSpec 来源已实现并有测试；详见[实施证据](docs/implementation-progress.md)。Spec Kit、Superpowers 及其他外部插件仍是未验证目标。原技术设计中的 flag 形式命令属于目标，不是当前语法。MCP、可信门禁使用及正式安装分发仍待完成。读取来源不会安装工具、下载依赖、执行文档指令或发放批准。
 
 ## 交付与文档
 
-交付顺序为只读发现（S0）、规格图与身份检查（S1）、受保护基线比较（S2）、跨守卫证据（S3）、稳定 CLI/MCP/CI 与缓存兼容性（S4）。每条强制规则都需要合法、违规、工具失败、覆盖不足四类 fixture。本次没有运行运行时测试或 OpenSpec 验证，因为检查的目录中两者均不存在。
+交付顺序为只读发现（S0）、规格图与身份检查（S1）、受保护基线比较（S2）、跨守卫证据（S3）、稳定 CLI/MCP/CI 与缓存兼容性（S4）。每条强制规则都需要合法、违规、工具失败、覆盖不足四类 fixture。当前已运行原生解析、快照、领域/GE 工件、运行时取消及 CLI 进程测试，详见[实施记录](docs/implementation-progress.md)。
 
 - [架构与 ADR](docs/architecture.md)：边界、规格图、基线及运行状态、信任、集成与场景。
 - [技术设计](docs/technical-design.md)：规划模块、DTO、算法、接口、诊断与可测量验收。
 - [共享集成合同草案](docs/integration-contract.md)：与引擎线格式分离的编排绑定。
 
-待定事项包括支持的源格式版本、稳定 ID 迁移策略、审批提供方、摘要/schema 实现及实测资源预算。目前不宣称存在二进制、托管服务或签名证明。参见 [Guard 项目仓库](https://github.com/orgs/full-stack-plugins/repositories)。
+待完成事项包括真实审批提供方、认证候选/门禁集成、完整 CLI 决策与原子发布、进一步资源能力验证、MCP 及正式分发。本地二进制不构成托管服务或签名证明。参见 [Guard 项目仓库](https://github.com/orgs/full-stack-plugins/repositories)。
 
 
 ## OpenSpec 实施待办
 
-新增增量 [proposal](openspec/changes/add-specification-baseline-analysis/proposal.md)、[design](openspec/changes/add-specification-baseline-analysis/design.md)、[规范](openspec/changes/add-specification-baseline-analysis/specs/) 与 [tasks](openspec/changes/add-specification-baseline-analysis/tasks.md)，将架构方案拆成待实施工作。参阅[跨仓依赖路线图](openspec/guard-roadmap.md)与[结构验证记录](openspec/validation-2026-10-09.md)。所有新增实施任务保持未勾选；本分支新增规划，不新增产品功能。前文源码树清单和验证限制对应检查基线或较早的架构审阅阶段；本次另行新增 OpenSpec 文档并记录实际 CLI 校验。既有 change 的任务归属和历史完成证据继续保留。
+新增增量 [proposal](openspec/changes/add-specification-baseline-analysis/proposal.md)、[design](openspec/changes/add-specification-baseline-analysis/design.md)、[规范](openspec/changes/add-specification-baseline-analysis/specs/) 与 [tasks](openspec/changes/add-specification-baseline-analysis/tasks.md)，将架构方案拆成待实施工作。参阅[跨仓依赖路线图](openspec/guard-roadmap.md)与[结构验证记录](openspec/validation-2026-10-09.md)。任务在独立审查后逐项登记，当前检查点为16/30。新交接和 CLI 切片审查前不勾选，未完整实现的能力仍标 partial。历史源码清单和验证记录继续保留为历史证据，不再作为当前能力说明。

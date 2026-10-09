@@ -35,7 +35,8 @@ pub struct ProtectedMapping {
     pub contract: GuardContract,
     pub entries: Vec<MappingEntry>,
 }
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Invocation {
     pub run_id: String,
     pub repo_id: String,
@@ -237,7 +238,7 @@ pub fn prepare(
     })
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub struct ProducedRun {
     pub envelope: GuardRunEnvelope,
     pub contract: Option<Vec<u8>>,

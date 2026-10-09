@@ -1,0 +1,20 @@
+{
+  "apiVersion": "specguard.compatibility-matrix/v1",
+  "profile": "local-source-distribution-linux-x86_64",
+  "sources": [
+    {"format":"markdown-explicit/v1","fixture":"markdown","registry":false,"complete":true},
+    {"format":"openspec-explicit/v1","fixture":"explicit","registry":false,"complete":true},
+    {"format":"openspec/1.14.1-main","fixture":"native-main","registry":true,"complete":true},
+    {"format":"openspec/1.14.1-added","fixture":"native-added","registry":true,"complete":true},
+    {"format":"openspec/1.14.2-main","fixture":"native-main","registry":true,"complete":false},
+    {"format":"openspec/1.14.0-main","fixture":"native-main","registry":true,"complete":false},
+    {"format":"markdown-explicit/v2","fixture":"markdown","registry":false,"complete":false}
+  ],
+  "engineWire":"guard.partme.ai/v1alpha1",
+  "envelopeWire":"guard.integration/v1alpha1",
+  "domainWire":"specguard.domain/v1alpha1",
+  "qualifiedProfiles":["specguard.structural/v1","specguard.baseline-review/v1"],
+  "unsupportedProfiles":["specguard.production-authenticated/v1"],
+  "implicitPreviousOrNextVersionSupport":false,
+  "productionRegistryRelease":false
+}

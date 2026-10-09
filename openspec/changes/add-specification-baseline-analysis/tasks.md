@@ -1,6 +1,6 @@
 # Specification Baseline Analysis Implementation Plan
 
-> **For agentic workers:** 后续实现使用 `superpowers:subagent-driven-development` 或 `superpowers:executing-plans` 按任务推进；后续已授权实现；根协调者已验收 16/30 项（含 7deaf72 的 native parser 1.4），新切片须独立复核后登记。
+> **For agentic workers:** 后续实现使用 `superpowers:subagent-driven-development` 或 `superpowers:executing-plans` 按任务推进；后续已授权实现；根协调者已验收 17/30 项（含 7deaf72 的 native parser 1.4），新切片须独立复核后登记。
 
 **Goal:** 建立只读规格图、可信批准基线、冻结验收义务和精确候选绑定证据。
 
@@ -60,7 +60,7 @@
 - [x] 3.3 在 `src/integration/run.rs` 实现绑定前诊断和绑定后 completed/error/cancelled 状态；`tests/run_state.rs` 覆盖参数错误、崩溃、取消、partial、旧产物。对应 “Bound envelope and distinct failure transport”；验收为绑定前无 envelope，后置错误 decision=null，合法 partial 为 BLOCK/INDETERMINATE。
 - [ ] 3.4 在 `src/integration/approval.rs`、`tests/report_immutability.rs` 对接 GE-TRUST 认证端口并验证批准引用不重写专家 decision；对应 “Bound envelope and distinct failure transport”“Authenticated freshness and audit references”；验收为 REQUIRE_APPROVAL 保持原值，FlowGuard 新报告具有自己的 scope，partial/tool error 不能被批准修复。
 - [ ] 3.5 在 `src/integration/binding.rs` 实现完整 invocation/源/基线绑定和实际对象校验；`tests/queue_binding.rs` 验证 branch HEAD 与 synthetic queue candidate 差异、base/merge group 变化。对应 “Exact candidate binding and concurrent isolation”；验收为精确干净冻结候选才能作为可信门禁输入。
-- [ ] 3.6 在 `src/integration/freshness.rs` 实现完整绑定幂等键、新 runId 重试和当前指针比较更新；`tests/concurrent_runs.rs` 同时运行两需求及晚返回旧候选。对应 “Exact candidate binding and concurrent isolation”；验收为无交叉满足，晚完成仅追加历史。
+- [x] 3.6 在 `src/integration/freshness.rs` 实现完整绑定幂等键、新 runId 重试和当前指针比较更新；`tests/concurrent_runs.rs` 同时运行两需求及晚返回旧候选。对应 “Exact candidate binding and concurrent isolation”；验收为无交叉满足，晚完成仅追加历史。
 - [ ] 3.7 在 `src/integration/freshness.rs`、`tests/evidence_invalidation.rs` 实现并验证 candidate/base/queue、policy、analyzer/coverage、baseline、approval expiry/revocation 全部失效条件；对应 “Authenticated freshness and audit references”；验收为逐项变更均拒绝旧证据，明确 approval 无 TTL 不免除撤销/输入失效。
 - [ ] 3.8 在 `src/integration/audit.rs` 实现附加式身份/绑定/摘要/因果记录及授权 evidence URI 解析；`tests/audit_integrity.rs` 检验篡改附件、伪生产者、越界 URI 和秘密脱敏。对应 “Authenticated freshness and audit references”；验收为 verify 重算不被当成信任，未选提供方前生产信任 profile 不启用。
 

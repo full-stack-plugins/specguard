@@ -371,12 +371,22 @@ pub fn freeze(
     inventory: &SourceInventory,
     binding: CandidateBinding,
 ) -> Result<SourceSnapshot, String> {
+    freeze_checked(root, inventory, binding, |binding| {
+        verify_candidate_objects(root, binding)
+    })
+}
+pub(crate) fn freeze_checked(
+    root: &Path,
+    inventory: &SourceInventory,
+    binding: CandidateBinding,
+    verify: impl FnOnce(&CandidateBinding) -> Result<(), String>,
+) -> Result<SourceSnapshot, String> {
     let root_handle = open_regular(root, true)?;
     let root_stamp = stamp(&root_handle)?;
     if inventory.entries.len() > inventory.limits.max_files {
         return Err("snapshot file limit".into());
     }
-    verify_candidate_objects(root, &binding)?;
+    verify(&binding)?;
     let mut captured = BTreeMap::new();
     for entry in &inventory.entries {
         if captured.contains_key(&entry.path) {

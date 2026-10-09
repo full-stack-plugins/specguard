@@ -2,8 +2,11 @@
 name = "specguard"
 version = "0.1.0"
 edition = "2024"
+rust-version = "1.90"
 
 [dependencies]
+gitguard = { path = "../gitguard" }
+tempfile = "=3.23.0"
 guardengine = { path = "../guardengine" }
 time = { version = "=0.3.44", features = ["parsing"] }
 serde = { version = "=1.0.228", features = ["derive"] }

@@ -118,6 +118,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "gitguard"
+version = "0.1.0"
+dependencies = [
+ "guardengine",
+ "libc",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "time",
+]
+
+[[package]]
 name = "guardengine"
 version = "0.1.0"
 dependencies = [
@@ -332,6 +345,7 @@ dependencies = [
 name = "specguard"
 version = "0.1.0"
 dependencies = [
+ "gitguard",
  "guardengine",
  "libc",
  "pulldown-cmark",
@@ -405,6 +419,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "91e7d9e3bb61134e77bde20dd4825b97c010155709965fedf0f49bb138e52a9d"
 dependencies = [
  "deranged",
+ "itoa",
  "num-conv",
  "powerfmt",
  "serde",

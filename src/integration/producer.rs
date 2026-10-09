@@ -86,7 +86,7 @@ fn qualified(key: &Identity) -> Result<String, String> {
     Ok(format!("{}:{}", key.namespace, key.id))
 }
 impl ProtectedMapping {
-    fn validate(&self, required: &BTreeSet<Identity>) -> Result<(), String> {
+    pub(crate) fn validate(&self, required: &BTreeSet<Identity>) -> Result<(), String> {
         preflight(self)?;
         if self.entries.is_empty()
             || self.entries.len() > 256
@@ -157,6 +157,23 @@ pub fn prepare(
     required: &BTreeSet<Identity>,
     mapping: &ProtectedMapping,
 ) -> Result<PreparedRun, TransportDiagnostic> {
+    prepare_checked(
+        snapshot,
+        invocation,
+        required,
+        mapping,
+        PROFILE,
+        |binding| verify_candidate_objects(root, binding),
+    )
+}
+pub(crate) fn prepare_checked(
+    snapshot: &SourceSnapshot,
+    invocation: Invocation,
+    required: &BTreeSet<Identity>,
+    mapping: &ProtectedMapping,
+    work_profile: &str,
+    verify: impl FnOnce(&crate::source::CandidateBinding) -> Result<(), String>,
+) -> Result<PreparedRun, TransportDiagnostic> {
     // All checks are borrowed until the immutable context is established.
     preflight(&(snapshot, &invocation, required, mapping))
         .map_err(|_| transport("input.budget"))?;
@@ -180,7 +197,7 @@ pub fn prepare(
     {
         return Err(transport("binding.unresolved"));
     }
-    verify_candidate_objects(root, &snapshot.binding).map_err(|_| transport("binding.objects"))?;
+    verify(&snapshot.binding).map_err(|_| transport("binding.objects"))?;
     let mut ids: Vec<String> = required
         .iter()
         .map(qualified)
@@ -226,7 +243,8 @@ pub fn prepare(
         profile: Some(EvidenceProfile::EngineBacked),
         started_at: invocation.started_at,
     };
-    let work_key = super::freshness::WorkKey::freeze(&draft, snapshot, required, mapping, PROFILE);
+    let work_key =
+        super::freshness::WorkKey::freeze(&draft, snapshot, required, mapping, work_profile);
     let recovery = super::runtime::Recovery::from_draft(&draft);
     let attempt = prepare_attempt(draft)?;
     Ok(PreparedRun {
@@ -241,7 +259,8 @@ pub fn prepare(
     })
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ProducedRun {
     pub envelope: GuardRunEnvelope,
     pub contract: Option<Vec<u8>>,
@@ -394,6 +413,9 @@ fn project_facts(
 }
 
 impl PreparedRun {
+    pub fn binding(&self) -> &RunBinding {
+        self.recovery.binding()
+    }
     pub(crate) fn recovery_receipt(&self) -> super::runtime::Recovery {
         self.recovery.clone()
     }

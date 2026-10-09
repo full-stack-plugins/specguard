@@ -84,6 +84,9 @@ fn valid_finish(start: &str, finish: &str) -> bool {
     }
 }
 impl Recovery {
+    pub(crate) fn binding(&self) -> &RunBinding {
+        self.binding.as_ref().expect("validated bound recovery")
+    }
     pub(crate) fn from_draft(draft: &InvocationDraft) -> Self {
         Self {
             run_id: draft.run_id.clone(),

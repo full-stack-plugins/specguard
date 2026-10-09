@@ -19,8 +19,8 @@ captures fail the explicit joint test rather than silently passing.
 CodeGuard native parity reference: implementation ledger
 `codeguard-native-parity-independent-review.md`, fixed CG25bac257. No native
 command replacement, production authentication or hosted queue authority is
-implied by these local fixtures. Task4.8 remains unchecked pending independent
-review of the new composition.
+implied by these local fixtures. Task4.8 is independently accepted for this local composition at `74ce33a`;
+see ledger `specguard-joint-independent-review.md`.
 
 ## Current SG lifecycle replay
 

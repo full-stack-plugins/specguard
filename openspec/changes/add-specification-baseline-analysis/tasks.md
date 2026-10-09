@@ -49,7 +49,7 @@
 - [x] 2.4 在 `src/baseline.rs` 固定首个结构化条件类型/单位比较合同；`tests/condition_comparison.rs` 验证收紧/放宽、单位不匹配、自由文本重述。对应 “Conservative baseline diff and impact”；验收为仅审核类型输出强弱，自由文本进入 review，不得依赖模型分数 enforce。
 - [x] 2.5 在 `src/graph.rs` 实现 impact 的反向索引和代表路径；`tests/impact_paths.rs` 验证多路径/环/超预算与稳定排序。对应 “Conservative baseline diff and impact”；验收为每个受影响节点有可解释路径、遍历有界且不报告测试已失败。
 - [x] 2.6 在 `src/obligations.rs`、`schemas/specguard-domain/obligations.json` 定版 export_obligations，输出 ID、来源/基线/候选摘要、范围和覆盖；`tests/obligation_export.rs` 验证完整导出、缺验收、partial 和摘要漂移。对应 “Versioned frozen TestObligation export”；验收为无 testPassed 虚构字段，partial 不能声明完整计划。
-- [ ] 2.7 在 `fixtures/handoffs/`、`tests/baseline_handoff.rs` 固定 SG-BASELINE golden fixtures 与测试命令，记录 TestGuard/ArchGuard 消费的版本和必需字段；对应 “Versioned frozen TestObligation export”“Authenticated immutable approved baseline”；验收为消费者模拟明确标注、实际消费另有记录，稳定 ID/不可变基线/义务三项全部可验证才交付阶段门。
+- [x] 2.7 在 `fixtures/handoffs/`、`tests/baseline_handoff.rs` 固定 SG-BASELINE golden fixtures 与测试命令，记录 TestGuard/ArchGuard 消费的版本和必需字段；对应 “Versioned frozen TestObligation export”“Authenticated immutable approved baseline”；验收为消费者模拟明确标注、实际消费另有记录，稳定 ID/不可变基线/义务三项全部可验证才交付阶段门。
 
 ## 3. Candidate-bound producer — GE-CONTRACT/ADAPTER then GE-TRUST
 

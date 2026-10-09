@@ -131,3 +131,8 @@ Root independently accepted task3.6 at271aa0b for bounded process-local typed-co
 ## Accepted exact Git source binding:18/30
 
 Independent e0c75597 review accepts task3.5 for the declared local exact-candidate profile:109 tests plus an independent cancel/seven-dimensional binding mutation probe. Actual SHA1/SHA256, synthetic queue candidate, dirty old HEAD isolation and complete source reanalysis reject self-consistent forged domain artifacts. Clean gate consumers must explicitly use prepare_clean; ordinary prepare accepts clean=false only as advisory. Baseline comparison does not establish baseline authority, and GitGuard currently rejects non-null baseline in this source path. No production identity or hosted queue qualification. Evidence: cloud ledger specguard-git-binding-independent-review.md.
+
+
+## Accepted actual architecture handoff: 19/30
+
+Root accepted task 2.7 after independent review of ArchGuard `1d6d1e304e7cf403c0df311098c461429279c6e4` consuming SpecGuard `e0c75597b81f5c8045902683b71d3bec0b87731d`. Actual committed Cargo/Markdown input is frozen/exported by SG, decoded by AG and checked against GitGuard object bytes before real GuardEngine execution. External evidence: `archguard-sg-independent-review.md`, `archguard-sg-slice-report.md`, and `archguard-sg-golden/` in the implementation ledger. Shared historical baseline obligation IDs are preserved. This accepts the local fixture authentication profile only, not production authorization, historical Git provenance, or candidate TestGuard execution. Task 4.2 is currently under implementation and remains unchecked.

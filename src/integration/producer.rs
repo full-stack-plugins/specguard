@@ -140,6 +140,7 @@ impl ProtectedMapping {
 }
 
 pub struct PreparedRun {
+    work_key: super::freshness::WorkKey,
     attempt: BoundAttempt,
     recovery: super::runtime::Recovery,
     snapshot: SourceSnapshot,
@@ -225,9 +226,11 @@ pub fn prepare(
         profile: Some(EvidenceProfile::EngineBacked),
         started_at: invocation.started_at,
     };
+    let work_key = super::freshness::WorkKey::freeze(&draft, snapshot, required, mapping, PROFILE);
     let recovery = super::runtime::Recovery::from_draft(&draft);
     let attempt = prepare_attempt(draft)?;
     Ok(PreparedRun {
+        work_key,
         attempt,
         recovery,
         snapshot: snapshot.clone(),
@@ -391,6 +394,12 @@ fn project_facts(
 }
 
 impl PreparedRun {
+    pub fn work_key(&self) -> &super::freshness::WorkKey {
+        &self.work_key
+    }
+    pub(crate) fn attempt_id(&self) -> &str {
+        &self.run_id
+    }
     pub fn cancel(self, finished_at: &str) -> Result<ProducedRun, TransportDiagnostic> {
         self.retained_failure(RunStatus::Cancelled, "execution.cancelled", finished_at)
     }

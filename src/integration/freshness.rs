@@ -291,3 +291,202 @@ impl RunHistory {
             .collect()
     }
 }
+
+/// Controller clock input. Implementations must read current trusted time on each
+/// call; this does not authenticate an arbitrary caller-provided clock.
+pub trait ConsumptionClock {
+    fn now(&self) -> Result<i64, String>;
+}
+pub struct SystemConsumptionClock;
+impl ConsumptionClock for SystemConsumptionClock {
+    fn now(&self) -> Result<i64, String> {
+        let seconds = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|_| "clock before epoch")?
+            .as_secs();
+        i64::try_from(seconds).map_err(|_| "clock range".into())
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ConsumptionError {
+    Budget,
+    UnsupportedProfile,
+    InvalidExpectation,
+    MissingCurrent,
+    Stale,
+    InvalidEvidence,
+    Clock,
+    Baseline,
+}
+/// Frozen from current prepared inputs before execution, never from returned evidence.
+/// ```compile_fail
+/// let expected: specguard::integration::freshness::CurrentExpectation = serde_json::from_str("{}").unwrap();
+/// ```
+pub struct CurrentExpectation {
+    key: WorkKey,
+    generation: u64,
+    policy: guardengine::integration::eligibility::EligibilityPolicy,
+}
+fn consumption_budget(value: &impl Serialize, max: usize) -> Result<(), ConsumptionError> {
+    struct Counter {
+        used: usize,
+        max: usize,
+    }
+    impl std::io::Write for Counter {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            if bytes.len() > self.max.saturating_sub(self.used) {
+                return Err(std::io::ErrorKind::InvalidInput.into());
+            }
+            self.used += bytes.len();
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+    serde_json::to_writer(Counter { used: 0, max }, value).map_err(|_| ConsumptionError::Budget)
+}
+impl CurrentExpectation {
+    pub fn freeze(
+        prepared: &PreparedRun,
+        generation: u64,
+        policy: &guardengine::integration::eligibility::EligibilityPolicy,
+        profile: super::approval::Profile,
+    ) -> Result<Self, ConsumptionError> {
+        if profile != super::approval::Profile::Fixture {
+            return Err(ConsumptionError::UnsupportedProfile);
+        }
+        consumption_budget(policy, 262_144)?;
+        if generation == 0
+            || &policy.binding != prepared.binding()
+            || policy.required_scopes.len() > 4096
+            || policy.producer_principals.len() > 64
+            || policy.approval_principals.len() > 64
+            || policy.approval_principals.values().any(|p| p.len() > 64)
+        {
+            return Err(ConsumptionError::InvalidExpectation);
+        }
+        Ok(Self {
+            key: prepared.work_key().clone(),
+            generation,
+            policy: policy.clone(),
+        })
+    }
+    pub fn freeze_git(
+        prepared: &super::git_binding::GitPreparedRun,
+        generation: u64,
+        policy: &guardengine::integration::eligibility::EligibilityPolicy,
+        profile: super::approval::Profile,
+    ) -> Result<Self, ConsumptionError> {
+        Self::freeze(prepared.domain_run(), generation, policy, profile)
+    }
+}
+/// Baseline input and authority are checked freshly; a cached ValidatedBaseline is
+/// deliberately not accepted at this boundary.
+pub struct BaselineCheck<'a> {
+    pub baseline: &'a crate::baseline::ApprovedBaseline,
+    pub authority: &'a dyn super::approval::ApprovalValidationPort,
+}
+/// Local assessment only. This type never certifies a production identity.
+pub struct FixtureConsumption {
+    assessment: guardengine::integration::eligibility::EligibilityResult,
+}
+impl FixtureConsumption {
+    pub fn eligible(&self) -> bool {
+        self.assessment.eligible
+    }
+    pub fn assessment(&self) -> &guardengine::integration::eligibility::EligibilityResult {
+        &self.assessment
+    }
+    pub fn profile(&self) -> super::approval::Profile {
+        super::approval::Profile::Fixture
+    }
+}
+impl RunHistory {
+    /// Preserve the exact private work key established by GG-backed preparation.
+    /// History retains the immutable domain output, not a persisted GitEvidenceBundle.
+    pub fn register_git(
+        &mut self,
+        prepared: super::git_binding::GitPreparedRun,
+        expected_generation: u64,
+    ) -> Result<RegisteredRun, HistoryError> {
+        self.register(prepared.into_domain_run(), expected_generation)
+    }
+    pub fn consume_current(
+        &self,
+        expected: &CurrentExpectation,
+        authority: &dyn guardengine::integration::eligibility::AuthorityProvider,
+        clock: &dyn ConsumptionClock,
+        baseline: Option<BaselineCheck<'_>>,
+    ) -> Result<FixtureConsumption, ConsumptionError> {
+        let current = self
+            .current(expected.key.target())
+            .ok_or(ConsumptionError::MissingCurrent)?;
+        if current.ticket.key != expected.key
+            || current.ticket.generation != expected.generation
+            || self.generation(expected.key.target()) != expected.generation
+        {
+            return Err(ConsumptionError::Stale);
+        }
+        current
+            .output
+            .verify()
+            .map_err(|_| ConsumptionError::InvalidEvidence)?;
+        let now = clock.now().map_err(|_| ConsumptionError::Clock)?;
+        if now < 0 {
+            return Err(ConsumptionError::Clock);
+        }
+        match (&expected.policy.binding.baseline_digest, baseline) {
+            (None, None) => {}
+            (Some(digest), Some(check)) => {
+                consumption_budget(check.baseline, 1_048_576)?;
+                let p = &check.baseline.graph.parsed;
+                if p.requirements
+                    .len()
+                    .saturating_add(p.acceptances.len())
+                    .saturating_add(p.edges.len())
+                    .saturating_add(p.sources.len())
+                    > 512
+                {
+                    return Err(ConsumptionError::Budget);
+                }
+                let mut scope: Vec<_> = check
+                    .baseline
+                    .scope
+                    .iter()
+                    .map(super::producer::qualified)
+                    .collect::<Result<_, _>>()
+                    .map_err(|_| ConsumptionError::Baseline)?;
+                scope.sort();
+                if crate::model::digest(check.baseline) != *digest
+                    || check.baseline.repository != expected.policy.binding.repo_id
+                    || scope != expected.policy.binding.requirement_ids
+                {
+                    return Err(ConsumptionError::Baseline);
+                }
+                super::approval::authenticate(
+                    check.baseline,
+                    check.authority,
+                    super::approval::Profile::Fixture,
+                    now,
+                )
+                .map_err(|_| ConsumptionError::Baseline)?;
+            }
+            _ => return Err(ConsumptionError::Baseline),
+        }
+        let output = &current.output;
+        let assessment = guardengine::integration::eligibility::evaluate_eligibility(
+            &output.envelope,
+            guardengine::integration::eligibility::ArtifactBytes {
+                contract: output.contract.as_deref().unwrap_or(&[]),
+                facts: output.facts.as_deref().unwrap_or(&[]),
+                report: output.report.as_deref().unwrap_or(&[]),
+            },
+            &expected.policy,
+            authority,
+            now,
+            None,
+        );
+        Ok(FixtureConsumption { assessment })
+    }
+}

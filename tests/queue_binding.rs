@@ -308,3 +308,126 @@ fn actual_git_preparation_is_not_skipped_by_cached_parsing() {
     let forged: CandidateSnapshot = serde_json::from_value(forged).unwrap();
     assert!(GitPreparedRun::prepare(&repo, &forged, &policy, attempt()).is_err());
 }
+
+#[test]
+fn actual_git_prepared_key_survives_history_and_consumption_bridge() {
+    use guardengine::integration::{eligibility::*, *};
+    use sha2::{Digest, Sha256};
+    use specguard::integration::{approval::Profile, freshness::*};
+    struct Clock;
+    impl ConsumptionClock for Clock {
+        fn now(&self) -> Result<i64, String> {
+            Ok(1_791_540_002)
+        }
+    }
+    struct Authority(Producer);
+    impl AuthorityProvider for Authority {
+        fn verify_producer(
+            &self,
+            _: &GuardRunEnvelope,
+            d: &str,
+        ) -> Result<ProducerRecord, AuthorityError> {
+            Ok(ProducerRecord {
+                principal: "fixture:sg".into(),
+                producer: self.0.clone(),
+                envelope_digest: d.into(),
+                validity: Validity {
+                    issued_at: 0,
+                    expires_at: 1_791_540_100,
+                    revoked: false,
+                },
+            })
+        }
+        fn verify_approval(&self, _: &str) -> Result<ApprovalRecord, AuthorityError> {
+            Err(AuthorityError::Untrusted)
+        }
+    }
+    for format in ["sha1", "sha256"] {
+        let (root, base, head) = fixture(format);
+        let repo = Repository::discover(root.path(), "fixture-repo").unwrap();
+        let policy = policy();
+        let original = candidate(&repo, &base, &head, &policy);
+        let prepared = GitPreparedRun::prepare_clean(&repo, &original, &policy, attempt()).unwrap();
+        let engine_policy = EligibilityPolicy {
+            binding: prepared.binding().clone(),
+            producer: Producer {
+                guard: "SpecGuard".into(),
+                version: env!("CARGO_PKG_VERSION").into(),
+                analyzer_id: "specguard.structural".into(),
+                analyzer_version: "1".into(),
+            },
+            required_scopes: vec![
+                "profile:specguard.structural/v1".into(),
+                "requirement:demo:R1".into(),
+                "source:specs/a.md".into(),
+            ],
+            contract_digest: format!(
+                "sha256:{:x}",
+                Sha256::digest(serde_json::to_vec(&producer_support::policy().contract).unwrap())
+            ),
+            action: "fixture:consume".into(),
+            producer_principals: BTreeSet::from(["fixture:sg".into()]),
+            approval_principals: std::collections::BTreeMap::new(),
+        };
+        let expected =
+            CurrentExpectation::freeze_git(&prepared, 1, &engine_policy, Profile::Fixture).unwrap();
+        let key = prepared.work_key().clone();
+        let authority = Authority(engine_policy.producer.clone());
+        let mut history = RunHistory::default();
+        let complete = history
+            .register_git(prepared, 0)
+            .unwrap()
+            .execute("2026-10-09T10:00:01Z", &CancellationToken::new(), |_| {})
+            .unwrap();
+        assert_eq!(complete.work_key(), &key);
+        history.append(&complete).unwrap();
+        history.publish(&complete).unwrap();
+        assert!(
+            history
+                .consume_current(&expected, &authority, &Clock, None)
+                .unwrap()
+                .eligible()
+        );
+        let scope = TaskScope::advisory(
+            "task",
+            vec!["demo:R1".into()],
+            vec![b"specs".to_vec()],
+            policy.digest().trim_start_matches("sha256:"),
+            None,
+        )
+        .unwrap();
+        let changed = repo
+            .prepare_candidate(
+                &repo
+                    .resolve_subject(SubjectRequest::Commit(head.clone()))
+                    .unwrap(),
+                &scope,
+                &CandidateRequest {
+                    worktree_id: "worktree".into(),
+                    base_oid: base.clone(),
+                    merge_group_id: Some("queue-1".into()),
+                    members: vec![head.clone(), base.clone()],
+                },
+            )
+            .unwrap();
+        let p = GitPreparedRun::prepare_clean(
+            &repo,
+            &changed,
+            &policy,
+            Attempt {
+                run_id: "next".into(),
+                started_at: "2026-10-09T10:00:00Z".into(),
+            },
+        )
+        .unwrap();
+        assert_ne!(p.work_key(), &key);
+        assert_eq!(p.binding(), &engine_policy.binding);
+        let changed_expected =
+            CurrentExpectation::freeze_git(&p, 1, &engine_policy, Profile::Fixture).unwrap();
+        assert!(
+            history
+                .consume_current(&changed_expected, &authority, &Clock, None)
+                .is_err()
+        );
+    }
+}

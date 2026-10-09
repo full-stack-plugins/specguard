@@ -140,6 +140,13 @@ pub struct GitPreparedRun {
     object_format: String,
 }
 impl GitPreparedRun {
+    pub(crate) fn domain_run(&self) -> &PreparedRun {
+        &self.prepared
+    }
+    pub(crate) fn into_domain_run(self) -> PreparedRun {
+        self.prepared
+    }
+
     /// Additionally require GG's observed worktree/index to match the exact candidate tree.
     /// This is a local cleanliness observation, not authenticated queue admission.
     pub fn prepare_clean(

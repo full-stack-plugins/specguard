@@ -18,6 +18,24 @@ pub(crate) fn parse_controlled(
     mut control: impl FnMut(Option<&SourceStatus>) -> Result<(), ()>,
 ) -> Result<ParseResult, ()> {
     control(None)?;
+    let start = std::time::Instant::now();
+    if let Err(reason) = crate::integration::producer::preflight(snapshot)
+        .and_then(|()| crate::integration::producer::parser_preflight(snapshot))
+    {
+        return Ok(ParseResult {
+            api_version: Version::V1,
+            snapshot_digest: String::new(),
+            candidate_oid: String::new(),
+            sources: vec![SourceStatus {
+                path: "<snapshot>".into(),
+                status: Terminal::Limit,
+                reason,
+            }],
+            requirements: vec![],
+            acceptances: vec![],
+            edges: vec![],
+        });
+    }
     let mut result = ParseResult {
         api_version: Version::V1,
         snapshot_digest: snapshot.digest.clone(),
@@ -55,7 +73,6 @@ pub(crate) fn parse_controlled(
             .collect();
         return Ok(result);
     }
-    let start = std::time::Instant::now();
     let native_registry = openspec::load_registry(snapshot, start);
     for entry in &snapshot.inventory.entries {
         control(None)?;
@@ -124,6 +141,9 @@ pub(crate) fn parse_controlled(
             let mut edges = vec![];
             let mut active_acceptance = false;
             for (n, line) in lines {
+                if start.elapsed().as_millis() >= limits.max_millis as u128 {
+                    return Err((Terminal::Limit, "explicit parse time budget".into()));
+                }
                 if line.chars().take_while(|c| *c == '#').count() > limits.max_depth {
                     return Err((Terminal::Limit, "heading depth budget".into()));
                 }
@@ -194,6 +214,12 @@ pub(crate) fn parse_controlled(
             }
             Ok((reqs, accs, edges))
         })();
+        let parsed = if start.elapsed().as_millis() >= snapshot.inventory.limits.max_millis as u128
+        {
+            Err((Terminal::Limit, "parse time budget exceeded".into()))
+        } else {
+            parsed
+        };
         result
             .sources
             .retain(|s| s.path != entry.path || s.status != Terminal::Complete);

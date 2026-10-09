@@ -302,6 +302,10 @@ struct DomainEvidence<'a> {
 // This intentionally rejects some large but otherwise valid documents before
 // parser allocation; it is not a global allocator or OS memory limit.
 pub(crate) fn parser_preflight(snapshot: &SourceSnapshot) -> Result<(), String> {
+    snapshot.inventory.limits.validate()?;
+    if snapshot.inventory.entries.len() > snapshot.inventory.limits.max_files {
+        return Err("parser file budget".into());
+    }
     let mut cost = 0usize;
     let mut lines = 0usize;
     for entry in &snapshot.inventory.entries {

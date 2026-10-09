@@ -136,3 +136,8 @@ Independent e0c75597 review accepts task3.5 for the declared local exact-candida
 ## Accepted actual architecture handoff: 19/30
 
 Root accepted task 2.7 after independent review of ArchGuard `1d6d1e304e7cf403c0df311098c461429279c6e4` consuming SpecGuard `e0c75597b81f5c8045902683b71d3bec0b87731d`. Actual committed Cargo/Markdown input is frozen/exported by SG, decoded by AG and checked against GitGuard object bytes before real GuardEngine execution. External evidence: `archguard-sg-independent-review.md`, `archguard-sg-slice-report.md`, and `archguard-sg-golden/` in the implementation ledger. Shared historical baseline obligation IDs are preserved. This accepts the local fixture authentication profile only, not production authorization, historical Git provenance, or candidate TestGuard execution. Task 4.2 is currently under implementation and remains unchecked.
+
+
+## Source/parser resource limits (4.2 pending review)
+
+The [source safety profile](security-limits.md) now applies hard policy/metadata/path and aggregate byte admission, routes public parser calls through the established construction preflight, checks freeze/last-file/explicit-parser elapsed time, and reuses GitGuard's bounded Git object verifier. This intentionally rejects previously oversized configurations and unsupported Git storage rather than weakening source protection. Native grammar, trace identities, and exact candidate-tree binding remain intact. Independent acceptance is still pending; 19/30 accepted is unchanged.

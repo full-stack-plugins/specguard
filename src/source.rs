@@ -18,6 +18,20 @@ pub struct Limits {
     pub max_depth: usize,
     pub max_millis: u64,
 }
+pub const MAX_SOURCE_BYTES: usize = 16 * 1024 * 1024;
+impl Limits {
+    pub(crate) fn validate(&self) -> Result<(), String> {
+        if self.max_files > 1000
+            || self.max_bytes > 1024 * 1024
+            || self.max_lines > 10_000
+            || self.max_depth > 64
+            || self.max_millis > 30_000
+        {
+            return Err("source hard budget exceeded".into());
+        }
+        Ok(())
+    }
+}
 impl Default for Limits {
     fn default() -> Self {
         Self {
@@ -82,6 +96,9 @@ fn supported(format: &str) -> bool {
 }
 fn safe(root: &Path, relative: &str) -> Result<std::path::PathBuf, String> {
     use std::path::Component;
+    if relative.len() > 4096 {
+        return Err("source path budget exceeded".into());
+    }
     let rel = Path::new(relative);
     if rel.as_os_str().is_empty() || rel.components().any(|c| !matches!(c, Component::Normal(_))) {
         return Err(format!("unsafe path: {relative}"));
@@ -213,13 +230,23 @@ fn read_bounded(root: &Path, path: &str, max: usize) -> Result<Vec<u8>, String> 
 }
 pub fn discover(root: &Path, policy: &SourcePolicy) -> Result<SourceInventory, String> {
     use std::{collections::BTreeSet, time::Instant};
+    policy.limits.validate()?;
+    if policy.roots.len() > 1000 {
+        return Err("source root budget exceeded".into());
+    }
+    crate::integration::producer::preflight(policy)?;
     let _root_handle = open_regular(root, true)?;
     let start = Instant::now();
     let mut entries = Vec::new();
+    let mut total_bytes = 0usize;
     let mut sources = Vec::new();
     let mut seen = BTreeSet::new();
     let mut authorities = BTreeMap::new();
     for config in &policy.roots {
+        if config.namespace.len() > 256 || config.authority.len() > 256 || config.format.len() > 128
+        {
+            return Err("source metadata budget exceeded".into());
+        }
         safe(root, &config.path)?;
         if !supported(&config.format) {
             sources.push(SourceStatus {
@@ -302,13 +329,30 @@ pub fn discover(root: &Path, policy: &SourcePolicy) -> Result<SourceInventory, S
                 });
                 continue;
             }
-            match read_bounded(root, &relative, policy.limits.max_bytes) {
+            match read_bounded(
+                root,
+                &relative,
+                policy
+                    .limits
+                    .max_bytes
+                    .min(MAX_SOURCE_BYTES.saturating_sub(total_bytes)),
+            ) {
                 Ok(bytes) => {
+                    let source_digest = digest(&bytes);
+                    if start.elapsed().as_millis() >= policy.limits.max_millis as u128 {
+                        sources.push(SourceStatus {
+                            path: relative,
+                            status: Terminal::Limit,
+                            reason: "discovery time budget exceeded".into(),
+                        });
+                        break;
+                    }
+                    total_bytes += bytes.len();
                     entries.push(SourceEntry {
                         path: relative.clone(),
                         format: config.format.clone(),
                         namespace: config.namespace.clone(),
-                        digest: digest(&bytes),
+                        digest: source_digest,
                     });
                     sources.push(SourceStatus {
                         path: relative,
@@ -351,28 +395,13 @@ pub fn discover(root: &Path, policy: &SourcePolicy) -> Result<SourceInventory, S
         limits: policy.limits.clone(),
     })
 }
-fn git(root: &Path, args: &[&str]) -> Result<String, String> {
-    let out = std::process::Command::new("git")
-        .arg("-C")
-        .arg(root)
-        .args(args)
-        .output()
-        .map_err(|e| e.to_string())?;
-    if !out.status.success() {
-        return Err("Git object verification failed".into());
-    }
-    Ok(String::from_utf8(out.stdout)
-        .map_err(|e| e.to_string())?
-        .trim()
-        .into())
-}
 pub fn freeze(
     root: &Path,
     inventory: &SourceInventory,
     binding: CandidateBinding,
 ) -> Result<SourceSnapshot, String> {
     freeze_checked(root, inventory, binding, |binding| {
-        verify_candidate_objects(root, binding)
+        verify_candidate_objects_bounded(root, binding, inventory.limits.max_millis)
     })
 }
 pub(crate) fn freeze_checked(
@@ -381,18 +410,40 @@ pub(crate) fn freeze_checked(
     binding: CandidateBinding,
     verify: impl FnOnce(&CandidateBinding) -> Result<(), String>,
 ) -> Result<SourceSnapshot, String> {
+    inventory.limits.validate()?;
+    crate::integration::producer::preflight(inventory)?;
+    let start = std::time::Instant::now();
+    let check_time = || {
+        if start.elapsed().as_millis() >= inventory.limits.max_millis as u128 {
+            Err("snapshot time budget exceeded".to_string())
+        } else {
+            Ok(())
+        }
+    };
+    check_time()?;
     let root_handle = open_regular(root, true)?;
     let root_stamp = stamp(&root_handle)?;
     if inventory.entries.len() > inventory.limits.max_files {
         return Err("snapshot file limit".into());
     }
     verify(&binding)?;
+    check_time()?;
     let mut captured = BTreeMap::new();
+    let mut total_bytes = 0usize;
     for entry in &inventory.entries {
+        check_time()?;
         if captured.contains_key(&entry.path) {
             return Err(format!("duplicate inventory path: {}", entry.path));
         }
-        let file = CapturedFile::read(root, &entry.path, inventory.limits.max_bytes)?;
+        let file = CapturedFile::read(
+            root,
+            &entry.path,
+            inventory
+                .limits
+                .max_bytes
+                .min(MAX_SOURCE_BYTES.saturating_sub(total_bytes)),
+        )?;
+        total_bytes += file.bytes.len();
         if digest(&file.bytes) != entry.digest {
             return Err(format!("source drift: {}", entry.path));
         }
@@ -401,6 +452,7 @@ pub(crate) fn freeze_checked(
     // Validate all owned captures after the read phase. Identity and ctime catch
     // same-byte inode replacement and mutate/restore, in addition to digest drift.
     for (path, file) in &captured {
+        check_time()?;
         file.verify(root, path, inventory.limits.max_bytes)?;
     }
     if stamp(&open_regular(root, true)?)? != root_stamp {
@@ -410,7 +462,9 @@ pub(crate) fn freeze_checked(
         .into_iter()
         .map(|(path, file)| (path, file.bytes))
         .collect();
+    check_time()?;
     let snapshot_digest = digest(&(inventory, &binding, &contents));
+    check_time()?;
     Ok(SourceSnapshot {
         api_version: Version::V1,
         inventory: inventory.clone(),
@@ -440,27 +494,41 @@ mod snapshot_stability_tests {
 
 /// Read-only Git object validation; not producer authentication or clean-tree proof.
 pub fn verify_candidate_objects(root: &Path, binding: &CandidateBinding) -> Result<(), String> {
+    verify_candidate_objects_bounded(root, binding, Limits::default().max_millis)
+}
+fn verify_candidate_objects_bounded(
+    root: &Path,
+    binding: &CandidateBinding,
+    max_millis: u64,
+) -> Result<(), String> {
     let _root = open_regular(root, true)?;
-    let actual = git(root, &["rev-parse", "--show-object-format"])?;
-    if actual != binding.object_format {
+    if max_millis == 0 {
+        return Err("Git verification time budget exceeded".into());
+    }
+    let limits = gitguard::git::runner::Limits {
+        timeout: std::time::Duration::from_millis(max_millis.min(5000)),
+        ..Default::default()
+    };
+    let repo = gitguard::Repository::discover_with_limits(root, "specguard-source", limits)
+        .map_err(|e| format!("bounded Git verification: {e:?}"))?;
+    if repo.object_format() != binding.object_format {
         return Err("Git object format mismatch".into());
     }
-    let len = match actual.as_str() {
-        "sha1" => 40,
-        "sha256" => 64,
-        _ => return Err("unsupported Git object format".into()),
-    };
     for oid in [&binding.candidate_oid, &binding.base_oid] {
+        let len = if repo.object_format() == "sha1" {
+            40
+        } else {
+            64
+        };
         if oid.len() != len
             || !oid
                 .bytes()
-                .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
         {
             return Err("invalid full Git OID".into());
         }
-        if git(root, &["cat-file", "-t", oid])? != "commit" {
-            return Err("OID is not a commit".into());
-        }
+        repo.commit(oid)
+            .map_err(|e| format!("OID is not a commit: {e:?}"))?;
     }
     Ok(())
 }

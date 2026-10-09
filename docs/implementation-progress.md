@@ -161,3 +161,8 @@ Root independently accepted task 3.4 at SpecGuard `8fc3f9b0df0df388b8f4ec6cdedab
 ## Read-only MCP implementation (4.4 pending independent review)
 
 The optional `specguard-mcp` stdio binary and embedding port freeze controller source/policy/access configuration, execute actual SG discovery and producer verification, and retain exact report bytes for authenticated local-session queries. The protocol follows the selected FG MCP 2025-11-25 profile with existing Serde pins; actual Python MCP SDK 1.29.0 initialized/list/call interoperability is tested. Five focused tests pass, including the actual subprocess/SDK path, denied/unknown tools, strict arguments, digest and framing bounds, cancellation/null decision, immutable history, and changed-source reread. Twenty existing CLI/output-budget/engine-producer tests also pass. Cancellation is cooperative through the embedding host token; the sequential CLI does not promise in-flight protocol cancellation. The profile is local-unverified, structural-only and grants no execution or approval authority. See `docs/mcp-readonly.md`; 4.4 remains unchecked and accepted count remains 27/30.
+
+
+## Reviewed local MCP acceptance: 28/30
+
+Root independently accepted task 4.4 at `80e6ea2aaec70d70f0e9e88cfb3733c9b5f0b70d` after checking 73 fixed Rust/Cargo files byte-for-byte and rerunning all five MCP tests, including the actual Python SDK 1.29.0 client. No finding. Evidence: implementation ledger `specguard-mcp-independent-review.md`. This accepts local access-key isolation and cooperative host-token cancellation, not production identity or asynchronous stdio cancellation. Task 4.7 remains unchecked.

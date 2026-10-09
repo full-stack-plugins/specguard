@@ -60,5 +60,5 @@ Run `cargo test --locked --offline --test mcp_readonly` with Python MCP 1.29.0
 installed for actual SDK/stdio and local contract verification. Tests cover
 access denial, unknown/write tools, arbitrary URI refusal, duplicate/unknown
 arguments, digest mismatch, oversized-frame recovery, real source reads,
-evidence preservation, source mutation and cooperative cancellation. Task 4.4
-remains unchecked until independent review.
+evidence preservation, source mutation and cooperative cancellation. Task 4.4 is independently accepted at `80e6ea2` for this local profile;
+see implementation ledger `specguard-mcp-independent-review.md`.

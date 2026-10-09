@@ -184,3 +184,10 @@ fn strict_trace_artifact_rejects_unknown_version_fields_and_golden_recomputes() 
         assert!(serde_json::from_value::<TraceArtifact>(value).is_err());
     }
 }
+
+#[test]
+fn deeply_nested_target_prose_respects_source_ast_budget() {
+    let (_, snapshot, _) = fixture(&format!("{ADR}\n{}nested\n", "> ".repeat(40)));
+    let artifact = scan(&snapshot, &BTreeSet::from([key("R1")])).unwrap();
+    assert!(!artifact.graph.complete());
+}

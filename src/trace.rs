@@ -51,7 +51,35 @@ fn target_format(format: &str) -> bool {
 fn line(text: &str, offset: usize) -> usize {
     text[..offset].bytes().filter(|b| *b == b'\n').count() + 1
 }
-fn targets(entry: &SourceEntry, text: &str) -> Result<Vec<TraceTarget>, String> {
+struct AstBudget<'a> {
+    depth: usize,
+    nodes: usize,
+    limits: &'a crate::source::Limits,
+    start: std::time::Instant,
+}
+impl AstBudget<'_> {
+    fn check(&mut self, event: &Event<'_>) -> Result<(), String> {
+        self.nodes = self.nodes.saturating_add(1);
+        match event {
+            Event::Start(_) => self.depth = self.depth.saturating_add(1),
+            Event::End(_) => self.depth = self.depth.saturating_sub(1),
+            _ => {}
+        }
+        if self.depth > self.limits.max_depth
+            || self.nodes > self.limits.max_lines.saturating_mul(32)
+            || self.start.elapsed().as_millis() >= self.limits.max_millis as u128
+        {
+            return Err("trace AST/time budget".into());
+        }
+        Ok(())
+    }
+}
+fn targets(
+    entry: &SourceEntry,
+    text: &str,
+    limits: &crate::source::Limits,
+    start: std::time::Instant,
+) -> Result<Vec<TraceTarget>, String> {
     let rest = text
         .strip_prefix("---\n")
         .ok_or("required trace frontmatter")?;
@@ -71,7 +99,14 @@ fn targets(entry: &SourceEntry, text: &str) -> Result<Vec<TraceTarget>, String> 
     let mut result = vec![];
     let mut heading = None;
     let mut quote = 0usize;
+    let mut budget = AstBudget {
+        depth: 0,
+        nodes: 0,
+        limits,
+        start,
+    };
     for (event, range) in Parser::new(body).into_offset_iter() {
+        budget.check(&event)?;
         match event {
             Event::Start(Tag::BlockQuote(_)) => quote += 1,
             Event::End(TagEnd::BlockQuote(_)) => quote = quote.saturating_sub(1),
@@ -104,12 +139,25 @@ fn targets(entry: &SourceEntry, text: &str) -> Result<Vec<TraceTarget>, String> 
     }
     Ok(result)
 }
-fn links(path: &str, text: &str, requirements: &[Requirement]) -> Result<Vec<TraceEdge>, String> {
+fn links(
+    path: &str,
+    text: &str,
+    requirements: &[Requirement],
+    limits: &crate::source::Limits,
+    start: std::time::Instant,
+) -> Result<Vec<TraceEdge>, String> {
     let mut items: Vec<(usize, String)> = vec![];
     let mut edges = vec![];
     let mut quote = 0usize;
     let mut code = 0usize;
+    let mut budget = AstBudget {
+        depth: 0,
+        nodes: 0,
+        limits,
+        start,
+    };
     for (event, range) in Parser::new(text).into_offset_iter() {
+        budget.check(&event)?;
         match event {
             Event::Start(Tag::CodeBlock(_)) => code += 1,
             Event::End(TagEnd::CodeBlock) => code = code.saturating_sub(1),
@@ -169,6 +217,7 @@ pub fn scan(
     snapshot: &SourceSnapshot,
     required: &BTreeSet<Identity>,
 ) -> Result<TraceArtifact, String> {
+    let start = std::time::Instant::now();
     preflight(&(snapshot, required))?;
     crate::integration::producer::parser_preflight(snapshot)?;
     if required.is_empty() || required.len() > 256 || snapshot.inventory.entries.len() > 4096 {
@@ -224,15 +273,21 @@ pub fn scan(
                 return Err("trace source budget".into());
             }
             if target_format(&entry.format) {
-                inventory.nodes.extend(targets(entry, text)?);
+                inventory
+                    .nodes
+                    .extend(targets(entry, text, &snapshot.inventory.limits, start)?);
             } else if parsed
                 .sources
                 .iter()
                 .any(|s| s.path == entry.path && s.status == Terminal::Complete)
             {
-                parsed
-                    .edges
-                    .extend(links(&entry.path, text, &parsed.requirements)?);
+                parsed.edges.extend(links(
+                    &entry.path,
+                    text,
+                    &parsed.requirements,
+                    &snapshot.inventory.limits,
+                    start,
+                )?);
             }
             Ok(())
         })();
@@ -250,6 +305,12 @@ pub fn scan(
                 path: entry.path.clone(),
                 status: if outcome.is_ok() {
                     Terminal::Complete
+                } else if outcome
+                    .as_ref()
+                    .err()
+                    .is_some_and(|error| error.contains("budget"))
+                {
+                    Terminal::Limit
                 } else {
                     Terminal::Malformed
                 },
@@ -263,7 +324,11 @@ pub fn scan(
                 .retain(|s| s.path != entry.path || s.status != Terminal::Complete);
             parsed.sources.push(SourceStatus {
                 path: entry.path.clone(),
-                status: Terminal::Malformed,
+                status: if reason.contains("budget") {
+                    Terminal::Limit
+                } else {
+                    Terminal::Malformed
+                },
                 reason,
             });
         }

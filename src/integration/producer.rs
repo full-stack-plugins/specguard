@@ -394,6 +394,9 @@ fn project_facts(
 }
 
 impl PreparedRun {
+    pub(crate) fn recovery_receipt(&self) -> super::runtime::Recovery {
+        self.recovery.clone()
+    }
     pub fn work_key(&self) -> &super::freshness::WorkKey {
         &self.work_key
     }

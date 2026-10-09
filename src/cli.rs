@@ -65,13 +65,75 @@ struct CheckOutput {
     #[serde(flatten)]
     bundle: ProducedRun,
 }
-fn emit(value: &impl Serialize) -> Result<(), String> {
-    let bytes = serde_json::to_vec(value).map_err(|e| e.to_string())?;
+fn encode(value: &impl Serialize) -> Result<Vec<u8>, String> {
+    // Count borrowed encoded bytes, including JSON byte-array expansion, before allocation.
+    crate::integration::producer::preflight(value)
+        .map_err(|_| "CLI output byte budget".to_owned())?;
+    struct Bounded(Vec<u8>);
+    impl std::io::Write for Bounded {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            if bytes.len()
+                > guardengine::integration::MAX_ARTIFACT_BYTES.saturating_sub(self.0.len())
+            {
+                return Err(std::io::Error::other("CLI output byte budget"));
+            }
+            self.0.extend_from_slice(bytes);
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+    let mut output = Bounded(Vec::new());
+    serde_json::to_writer(&mut output, value).map_err(|e| e.to_string())?;
+    Ok(output.0)
+}
+fn write_output(bytes: &[u8]) -> Result<(), String> {
     use std::io::Write;
     std::io::stdout()
         .lock()
-        .write_all(&bytes)
+        .write_all(bytes)
         .map_err(|e| e.to_string())
+}
+fn emit(value: &impl Serialize) -> Result<(), String> {
+    write_output(&encode(value)?)
+}
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Query<T: Serialize> {
+    api_version: &'static str,
+    kind: &'static str,
+    authentication_profile: &'static str,
+    #[serde(flatten)]
+    payload: T,
+}
+fn query(kind: &'static str, payload: impl Serialize) -> Result<(), String> {
+    emit(&Query {
+        api_version: "specguard.cli-query/v1alpha1",
+        kind,
+        authentication_profile: "unverified",
+        payload,
+    })
+}
+#[derive(Serialize)]
+struct Doctor<'a> {
+    inventory: &'a crate::source::SourceInventory,
+}
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Scan<'a> {
+    candidate_binding: &'a CandidateBinding,
+    source_digest: &'a str,
+    inventory: &'a crate::source::SourceInventory,
+    graph: &'a crate::graph::TypedSpecificationGraph,
+}
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Diff<'a> {
+    baseline_digest: String,
+    candidate_oid: &'a str,
+    source_digest: &'a str,
+    diff: &'a crate::baseline::BaselineDiff,
 }
 fn snapshot(root: &str, policy: &str, binding: &str) -> Result<SourceSnapshot, String> {
     let policy: SourcePolicy = read(policy)?;
@@ -94,8 +156,11 @@ pub fn run(args: &[String]) -> Result<i32, String> {
         Some("doctor") if args.len() == 3 => {
             let policy: SourcePolicy = read(&args[2])?;
             let inventory = discover(Path::new(&args[1]), &policy)?;
-            emit(
-                &serde_json::json!({"apiVersion":"specguard.cli-query/v1alpha1","kind":"doctor","authenticationProfile":"unverified","inventory":inventory}),
+            query(
+                "doctor",
+                Doctor {
+                    inventory: &inventory,
+                },
             )?;
             Ok(0)
         }
@@ -105,8 +170,14 @@ pub fn run(args: &[String]) -> Result<i32, String> {
             let artifact = trace::scan(&snapshot, &required)?;
             trace::export(&artifact)?;
             if args[0] == "scan" {
-                emit(
-                    &serde_json::json!({"apiVersion":"specguard.cli-query/v1alpha1","kind":"scan","authenticationProfile":"unverified","candidateBinding":snapshot.binding,"sourceDigest":snapshot.digest,"inventory":snapshot.inventory,"graph":artifact.graph}),
+                query(
+                    "scan",
+                    Scan {
+                        candidate_binding: &snapshot.binding,
+                        source_digest: &snapshot.digest,
+                        inventory: &snapshot.inventory,
+                        graph: &artifact.graph,
+                    },
                 )?;
             } else {
                 emit(&artifact)?;
@@ -142,8 +213,14 @@ pub fn run(args: &[String]) -> Result<i32, String> {
                 &graph,
                 &std::collections::BTreeMap::new(),
             )?;
-            emit(
-                &serde_json::json!({"apiVersion":"specguard.cli-query/v1alpha1","kind":"diff","authenticationProfile":"unverified","baselineDigest":crate::model::digest(&baseline),"candidateOid":snapshot.binding.candidate_oid,"sourceDigest":snapshot.digest,"diff":diff}),
+            query(
+                "diff",
+                Diff {
+                    baseline_digest: crate::model::digest(&baseline),
+                    candidate_oid: &snapshot.binding.candidate_oid,
+                    source_digest: &snapshot.digest,
+                    diff: &diff,
+                },
             )?;
             Ok(0)
         }
@@ -165,11 +242,36 @@ pub fn run(args: &[String]) -> Result<i32, String> {
             if args.len() == 4 {
                 token.cancel();
             }
+            let recovery = prepared.recovery_receipt();
             let bundle = prepared
                 .execute(&request.finished_at, &token, |_| {})
                 .map_err(|e| format!("{}: {}", e.code, e.message))?;
             bundle.verify()?;
-            let code = match bundle.envelope.decision {
+            let mut output = CheckOutput {
+                api_version: "specguard.cli-check/v1alpha1",
+                authentication_profile: "unverified",
+                bundle,
+            };
+            let bytes = match encode(&output) {
+                Ok(bytes) => bytes,
+                Err(_) => {
+                    let mut history = crate::integration::runtime::History::default();
+                    for source in &snapshot.inventory.sources {
+                        history.record(source);
+                    }
+                    output.bundle = recovery
+                        .failure(
+                            guardengine::integration::RunStatus::Error,
+                            "cli.output_budget",
+                            &request.finished_at,
+                            history,
+                        )
+                        .map_err(|e| format!("{}: {}", e.code, e.message))?;
+                    output.bundle.verify()?;
+                    encode(&output)?
+                }
+            };
+            let code = match output.bundle.envelope.decision {
                 Some(guardengine::Decision::Allow) => 0,
                 Some(guardengine::Decision::Block) => 2,
                 Some(guardengine::Decision::RequireApproval) => 3,
@@ -181,13 +283,29 @@ pub fn run(args: &[String]) -> Result<i32, String> {
                     serde_json::json!({"code":"cli.bound_failure","message":"check did not complete; use this invocation's envelope and diagnostics"})
                 );
             }
-            emit(&CheckOutput {
-                api_version: "specguard.cli-check/v1alpha1",
-                authentication_profile: "unverified",
-                bundle,
-            })?;
+            write_output(&bytes)?;
             Ok(code)
         }
         _ => Err(format!("invalid arguments; {HELP}")),
+    }
+}
+
+#[cfg(test)]
+mod output_budget_tests {
+    use super::*;
+    #[test]
+    fn query_payload_admission_counts_byte_array_expansion() {
+        #[derive(Serialize)]
+        struct Payload<'a> {
+            bytes: &'a [u8],
+        }
+        let bytes = vec![255; 5 * 1024 * 1024];
+        let query = Query {
+            api_version: "specguard.cli-query/v1alpha1",
+            kind: "probe",
+            authentication_profile: "unverified",
+            payload: Payload { bytes: &bytes },
+        };
+        assert_eq!(encode(&query).unwrap_err(), "CLI output byte budget");
     }
 }

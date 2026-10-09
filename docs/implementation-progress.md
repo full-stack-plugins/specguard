@@ -166,3 +166,7 @@ The optional `specguard-mcp` stdio binary and embedding port freeze controller s
 ## Reviewed local MCP acceptance: 28/30
 
 Root independently accepted task 4.4 at `80e6ea2aaec70d70f0e9e88cfb3733c9b5f0b70d` after checking 73 fixed Rust/Cargo files byte-for-byte and rerunning all five MCP tests, including the actual Python SDK 1.29.0 client. No finding. Evidence: implementation ledger `specguard-mcp-independent-review.md`. This accepts local access-key isolation and cooperative host-token cancellation, not production identity or asynchronous stdio cancellation. Task 4.7 remains unchecked.
+
+## Actual local rollout composition (4.7 pending review)
+
+`examples/rollout/` and `tests/rollout_rollback.rs` execute the existing CLI and actual Python MCP SDK against committed private source bytes. Six fresh reports cover advisory, cancelled shadow discrepancy, resolving recheck, explicit opt-in and independent adapter disable. Required local consumption cannot shrink its two-adapter set or reuse old ALLOW after disable; the other adapter still executes, immutable audit bytes remain queryable, and source/configuration snapshots remain unchanged. Every returned bundle is verified by the existing Rust producer verifier. The real example and integration test passed; no hosted enforcement, durable audit deployment or new authority platform is claimed. The existing independently accepted CodeGuard native parity matrix is referenced without rerunning or modifying CodeGuard. Task 4.7 remains unchecked; accepted count remains 28/30.

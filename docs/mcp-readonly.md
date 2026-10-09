@@ -2,8 +2,9 @@
 
 `specguard-mcp --local-readonly-v1 ROOT CONFIG.json CONFIG_DIGEST` starts the
 optional sequential stdio server. CONFIG_DIGEST is the existing SG
-`model::digest` of the exact configuration bytes (SHA-256 with its normal
-prefix). The controller supplies this digest independently; a matching digest
+`model::digest(&bytes)` of the exact configuration byte vector: SHA-256 of
+the compact JSON integer array encoding of those bytes, with `sha256:` prefix
+(not the raw-file SHA-256). The controller supplies this digest independently; a matching digest
 is integrity checking, not identity authentication. Configuration must be a
 regular file of at most 256 KiB. Startup failures exit 4 with a generic stderr
 diagnostic; stdout contains only JSON-RPC responses. The existing `cargo run`

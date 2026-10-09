@@ -6,7 +6,9 @@ bundle = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(bundle)
 
 def prepare(archive, destination):
-    root = pathlib.Path(destination).resolve()
+    # Preserve the requested leaf so unpack_checked can reject an existing
+    # (including dangling) symlink. Parent ownership is the caller boundary.
+    root = pathlib.Path(destination).absolute()
     bundle.unpack_checked(archive, root)
     consumer = root / 'consumer'
     (consumer / 'src').mkdir(parents=True)

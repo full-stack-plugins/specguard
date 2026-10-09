@@ -422,6 +422,22 @@ impl RunHistory {
         clock: &dyn ConsumptionClock,
         baseline: Option<BaselineCheck<'_>>,
     ) -> Result<FixtureConsumption, ConsumptionError> {
+        self.consume_checked(expected, None, authority, clock, baseline)
+    }
+    pub fn consume_attached(
+        &self,
+        expected: &CurrentExpectation,
+        attachment: &ApprovalAttachment<'_>,
+        authority: &dyn guardengine::integration::eligibility::AuthorityProvider,
+        clock: &dyn ConsumptionClock,
+        baseline: Option<BaselineCheck<'_>>,
+    ) -> Result<FixtureConsumption, ConsumptionError> {
+        self.consume_checked(expected, Some(attachment), authority, clock, baseline)
+    }
+    fn checked_current(
+        &self,
+        expected: &CurrentExpectation,
+    ) -> Result<&StoredRun, ConsumptionError> {
         let current = self
             .current(expected.key.target())
             .ok_or(ConsumptionError::MissingCurrent)?;
@@ -431,6 +447,27 @@ impl RunHistory {
         {
             return Err(ConsumptionError::Stale);
         }
+        Ok(current)
+    }
+    fn consume_checked(
+        &self,
+        expected: &CurrentExpectation,
+        attachment: Option<&ApprovalAttachment<'_>>,
+        authority: &dyn guardengine::integration::eligibility::AuthorityProvider,
+        clock: &dyn ConsumptionClock,
+        baseline: Option<BaselineCheck<'_>>,
+    ) -> Result<FixtureConsumption, ConsumptionError> {
+        let current = self.checked_current(expected)?;
+        let envelope = if let Some(attachment) = attachment {
+            if !Arc::ptr_eq(&self.identity, &attachment.original.ticket.store)
+                || !std::ptr::eq(current, attachment.original)
+            {
+                return Err(ConsumptionError::InvalidEvidence);
+            }
+            &attachment.envelope
+        } else {
+            &current.output.envelope
+        };
         current
             .output
             .verify()
@@ -495,7 +532,7 @@ impl RunHistory {
         }
         let output = &current.output;
         let assessment = guardengine::integration::eligibility::evaluate_eligibility(
-            &output.envelope,
+            envelope,
             guardengine::integration::eligibility::ArtifactBytes {
                 contract: output.contract.as_deref().unwrap_or(&[]),
                 facts: output.facts.as_deref().unwrap_or(&[]),
@@ -512,5 +549,78 @@ impl RunHistory {
             return Err(ConsumptionError::Clock);
         }
         Ok(FixtureConsumption { assessment })
+    }
+}
+
+/// Controller-selected references over borrowed immutable historical artifacts.
+/// This is not a grant. Consumption must authenticate the new envelope digest.
+/// ```compile_fail
+/// let attachment: specguard::integration::freshness::ApprovalAttachment<'_> = serde_json::from_str("{}").unwrap();
+/// ```
+pub struct ApprovalAttachment<'a> {
+    original: &'a StoredRun,
+    envelope: guardengine::integration::GuardRunEnvelope,
+}
+impl ApprovalAttachment<'_> {
+    pub fn envelope(&self) -> &guardengine::integration::GuardRunEnvelope {
+        &self.envelope
+    }
+    pub fn contract_bytes(&self) -> Option<&[u8]> {
+        self.original.output.contract.as_deref()
+    }
+    pub fn facts_bytes(&self) -> Option<&[u8]> {
+        self.original.output.facts.as_deref()
+    }
+    pub fn report_bytes(&self) -> Option<&[u8]> {
+        self.original.output.report.as_deref()
+    }
+    pub fn domain_bytes(&self) -> Option<&[u8]> {
+        self.original.output.domain.as_deref()
+    }
+}
+impl RunHistory {
+    pub fn attach_current(
+        &self,
+        expected: &CurrentExpectation,
+        refs: &[String],
+    ) -> Result<ApprovalAttachment<'_>, ConsumptionError> {
+        if refs.is_empty() || refs.len() > 64 {
+            return Err(ConsumptionError::Budget);
+        }
+        let mut total = 0usize;
+        for reference in refs {
+            if reference.trim().is_empty()
+                || reference.len() > 1024
+                || reference.chars().any(char::is_control)
+            {
+                return Err(ConsumptionError::InvalidExpectation);
+            }
+            total = total.saturating_add(reference.len());
+        }
+        if total > 16_384 || refs.windows(2).any(|pair| pair[0] >= pair[1]) {
+            return Err(ConsumptionError::Budget);
+        }
+        let current = self.checked_current(expected)?;
+        let original = &current.output;
+        consumption_budget(&(&original.envelope, refs), 1_048_576)?;
+        use guardengine::integration::{CoverageStatus, EvidenceProfile, RunStatus};
+        if original.envelope.run_status != RunStatus::Completed
+            || original.envelope.coverage.status != CoverageStatus::Complete
+            || original.envelope.decision != Some(guardengine::Decision::RequireApproval)
+        {
+            return Err(ConsumptionError::InvalidEvidence);
+        }
+        original
+            .verify()
+            .map_err(|_| ConsumptionError::InvalidEvidence)?;
+        let mut envelope = original.envelope.clone();
+        envelope.approval_refs = refs.to_vec();
+        envelope
+            .validate(EvidenceProfile::EngineBacked)
+            .map_err(|_| ConsumptionError::InvalidEvidence)?;
+        Ok(ApprovalAttachment {
+            original: current,
+            envelope,
+        })
     }
 }

@@ -29,4 +29,32 @@ for (const [name, content] of variants) {
   if (!validator.isValid(report) || JSON.stringify(extracted.requirements[0]) !== JSON.stringify(golden.requirement)) throw new Error(`Official parity failed: ${name}: ${JSON.stringify(report)}`);
   cases.push({name,report,extractionMatches:true});
 }
-console.log(JSON.stringify({package:metadata.name, version:metadata.version, mainReport, changeReport, cases, requirement:parsed.requirements[0]},null,2));
+const hierarchyCases = [];
+for (const depth of [4,5,6]) {
+  for (const wrapper of ['plain','backtick','tilde','quote']) {
+    for (const nested of [false,true]) {
+      const heading = `${'#'.repeat(depth)} Scenario: Extra mandatory behavior\n- **THEN** the system rejects revoked credentials\n`;
+      const fragment = wrapper === 'backtick' ? `\`\`\`markdown\n${heading}\`\`\`\n`
+        : wrapper === 'tilde' ? `~~~markdown\n${heading}~~~\n`
+        : wrapper === 'quote' ? heading.trimEnd().split('\n').map(line=>`> ${line}\n`).join('') : heading;
+      const anchor = nested ? '#### Scenario: Incorrect password' : '#### Scenario: Correct password';
+      const content = source.replace(anchor, `${fragment}\n${anchor}`);
+      const report = await validator.validateSpecContent('session',content);
+      const extraction = new MarkdownParser(content).parseSpec('session');
+      const expected = wrapper === 'plain' && (!nested || depth === 4) ? 3 : 2;
+      const scenarios = extraction.requirements[0].scenarios;
+      if (!validator.isValid(report) || scenarios.length !== expected) throw new Error(`Official hierarchy case failed H${depth}/${wrapper}/${nested}: ${JSON.stringify({report,scenarios})}`);
+      if (nested && expected === 2 && !scenarios[0].rawText.includes('Extra mandatory behavior')) throw new Error('Nested scenario text lost by official parser');
+      hierarchyCases.push({depth,wrapper,nested,valid:report.valid,scenarios:scenarios.map(s=>s.name),specguardExpectation:expected===3?(depth>4?'unsupported hierarchy':'incomplete without extra registry ID'):'complete with nested/data text preserved'});
+    }
+  }
+}
+for (const depth of [4,5]) {
+  const extra = `${'#'.repeat(depth)} Requirement: Extra mandatory requirement\nThe application MUST enforce revoked credentials.\n\n${'#'.repeat(depth+1)} Scenario: Revoked credential\n- **THEN** the system rejects access\n\n`;
+  const content = source.replace('### Requirement: Password authentication', `${extra}### Requirement: Password authentication`);
+  const report = await validator.validateSpecContent('session',content);
+  const extraction = new MarkdownParser(content).parseSpec('session');
+  if (!validator.isValid(report) || extraction.requirements.length !== 2) throw new Error(`Official skipped requirement case H${depth}: ${JSON.stringify({report,extraction})}`);
+  hierarchyCases.push({depth,kind:'skipped-requirement',valid:report.valid,requirements:extraction.requirements.map(r=>r.name),specguardExpectation:'unsupported hierarchy'});
+}
+console.log(JSON.stringify({package:metadata.name, version:metadata.version, mainReport, changeReport, cases, hierarchyCases, requirement:parsed.requirements[0]},null,2));

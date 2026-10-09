@@ -301,6 +301,33 @@ pub(super) fn parse_native(
         .iter()
         .find(|h| h.level <= 2)
         .map_or(text.len(), |h| h.start);
+    // OpenSpec parses direct section children, not just a fixed heading level.
+    // Our canonical subset must reject skipped requirement/scenario levels before
+    // any nodes are emitted; deeper headings inside a scenario remain its body.
+    let mut ancestors = vec![2usize];
+    for header in headings
+        .iter()
+        .filter(|h| h.start >= section.body && h.start < end)
+    {
+        while ancestors.last().is_some_and(|level| *level >= header.level) {
+            ancestors.pop();
+        }
+        let parent = ancestors.last().copied();
+        if matches!(parent, Some(2)) && header.level != 3
+            || matches!(parent, Some(3)) && header.level != 4
+        {
+            return Err((
+                Terminal::Unsupported,
+                format!(
+                    "unsupported native heading hierarchy at line {}: H{} directly below H{}",
+                    header.line,
+                    header.level,
+                    parent.unwrap()
+                ),
+            ));
+        }
+        ancestors.push(header.level);
+    }
     if entry.format == "openspec/1.14.1-main" {
         if headings
             .iter()

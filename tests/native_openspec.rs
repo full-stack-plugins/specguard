@@ -245,3 +245,127 @@ fn indented_code_is_an_explicitly_unsupported_native_capability() {
     assert!(p.sources.iter().any(|s| s.status == Terminal::Unsupported));
     assert!(!build_graph(p).complete());
 }
+
+#[test]
+fn direct_child_heading_depths_cannot_hide_unmapped_scenarios() {
+    for (format, source) in [
+        ("openspec/1.14.1-main", MAIN),
+        ("openspec/1.14.1-added", ADDED),
+    ] {
+        for depth in 4..=6 {
+            let extra = format!(
+                "{} Scenario: Extra mandatory behavior\n- **THEN** the system rejects revoked credentials\n\n",
+                "#".repeat(depth)
+            );
+            let text = source.replace(
+                "#### Scenario: Correct password",
+                &(extra + "#### Scenario: Correct password"),
+            );
+            let (_, s) = native_snapshot(format, text.as_bytes(), IDS.as_bytes());
+            let p = parse(&s);
+            assert!(
+                !build_graph(p.clone()).complete(),
+                "{format}, direct child H{depth}"
+            );
+            assert!(
+                p.requirements.is_empty(),
+                "partial native extraction must not escape"
+            );
+            if depth > 4 {
+                assert!(p.sources.iter().any(|s| s.status == Terminal::Unsupported));
+                let mut registry: serde_json::Value = serde_json::from_str(IDS).unwrap();
+                registry["documents"][0]["requirements"][0]["scenarios"]
+                    .as_array_mut()
+                    .unwrap()
+                    .push(serde_json::json!({"title":"Extra mandatory behavior","id":"A3"}));
+                let (_, s) = native_snapshot(
+                    format,
+                    text.as_bytes(),
+                    &serde_json::to_vec(&registry).unwrap(),
+                );
+                let mapped = parse(&s);
+                assert!(!build_graph(mapped.clone()).complete());
+                assert!(
+                    mapped
+                        .sources
+                        .iter()
+                        .any(|s| s.status == Terminal::Unsupported),
+                    "mapping does not enable unsupported hierarchy"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn skipped_requirement_levels_cannot_hide_unmapped_requirements() {
+    for (format, source) in [
+        ("openspec/1.14.1-main", MAIN),
+        ("openspec/1.14.1-added", ADDED),
+    ] {
+        for depth in 4..=5 {
+            let extra = format!(
+                "{} Requirement: Extra mandatory requirement\nThe application MUST enforce revoked credentials.\n\n{} Scenario: Revoked credential\n- **THEN** the system rejects access\n\n",
+                "#".repeat(depth),
+                "#".repeat(depth + 1)
+            );
+            let text = source.replace(
+                "### Requirement: Password authentication",
+                &(extra + "### Requirement: Password authentication"),
+            );
+            let (_, s) = native_snapshot(format, text.as_bytes(), IDS.as_bytes());
+            let p = parse(&s);
+            assert!(
+                !build_graph(p.clone()).complete(),
+                "{format}, requirement H{depth}"
+            );
+            assert!(p.sources.iter().any(|s| s.status == Terminal::Unsupported));
+        }
+    }
+}
+
+#[test]
+fn fenced_or_quoted_headings_are_data_and_nested_scenario_headings_are_preserved() {
+    for depth in 4..=6 {
+        for wrapper in ["backtick", "tilde", "quote", "plain"] {
+            let heading = format!(
+                "{} Scenario: Extra mandatory behavior\n- **THEN** the system rejects revoked credentials\n",
+                "#".repeat(depth)
+            );
+            let fragment = match wrapper {
+                "backtick" => format!("```markdown\n{heading}```\n"),
+                "tilde" => format!("~~~markdown\n{heading}~~~\n"),
+                "quote" => heading.lines().map(|line| format!("> {line}\n")).collect(),
+                _ => heading,
+            };
+            for nested in [false, true] {
+                let anchor = if nested {
+                    "#### Scenario: Incorrect password"
+                } else {
+                    "#### Scenario: Correct password"
+                };
+                let text = MAIN.replace(anchor, &format!("{fragment}\n{anchor}"));
+                let (_, s) =
+                    native_snapshot("openspec/1.14.1-main", text.as_bytes(), IDS.as_bytes());
+                let p = parse(&s);
+                if wrapper == "plain" && (!nested || depth == 4) {
+                    assert!(
+                        !build_graph(p.clone()).complete(),
+                        "unmapped H{depth}, nested={nested}"
+                    );
+                    assert!(p.acceptances.is_empty());
+                } else {
+                    assert!(
+                        build_graph(p.clone()).complete(),
+                        "H{depth}, {wrapper}, nested={nested}: {:?}",
+                        p.sources
+                    );
+                    assert_eq!(p.acceptances.len(), 2);
+                    if nested {
+                        assert!(p.acceptances[0].text.contains("Extra mandatory behavior"));
+                    }
+                }
+            }
+        }
+    }
+}

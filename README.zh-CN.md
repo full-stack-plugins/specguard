@@ -2,47 +2,67 @@
 
 [English](README.md) · [简体中文](README.zh-CN.md)
 
-**面向 AI 原生研发的需求、规格与验收基线守卫。**
+**面向 AI 原生研发的确定性需求、规格与验收治理。**
 
-> **当前状态：已完成详细架构与技术方案文档，尚未实现可执行的 SpecGuard CLI、MCP 或 CI 门禁。** 下方命令只是目标接口。
+> **当前仅有设计文档。** 本次检查基于 `main` 提交 `01137804aa465c1b931c73c9d211ff0d29b46c7a`（检查日期 2026-10-09）。已跟踪文件只有两份 README 与两份设计文档，没有源码、包清单、测试、schema、CI 配置或 OpenSpec 工作区。下述 SpecGuard 能力与命令全部是目标方案，不代表已经实现。文档描述方向，不代表实施或验证已完成。
 
-## 解决什么问题
+## 为什么需要 SpecGuard
 
-AI 能快速写出需求文档、开发任务与测试描述，但“生成出来了”不意味着需求被准确理解。SpecGuard 在已经批准的需求基线下，检查原始诉求、产品需求、验收、设计、编码任务和测试义务之间是否保持正确的结构与引用关系。
+AI 可以快速生成需求和任务，却不能证明需求范围被正确理解。SpecGuard 计划检查稳定身份、追踪关系以及批准验收义务的变更。业务语义歧义仍需人工审查，不能把自然语言模型评分当成强制门禁证据。
 
 ~~~text
-原始诉求 → 需求规格 → 验收标准 → 设计/任务 → 测试义务
-                   │
-               追踪关系图
-                   │
-          结构规则 + 批准基线差异
-                   │
-         GuardEngine 规则与证据评估
-                   │
-           检查结果 → FlowGuard/CI
+原始诉求 / OpenSpec / Spec Kit / Superpowers / 显式 Markdown
+                              ↓
+                     只读适配器 + 声明覆盖范围
+                              ↓
+              需求 → 验收 → 设计/任务 → 测试义务
+                              ↓
+                    结构校验 + 批准基线差异
+                              ↓
+                 领域发现 → GuardFacts → GuardEngine
+                              ↓
+               限定范围的决策与证据 → 可信 CI / FlowGuard
 ~~~
 
-## 主要职责
+## 范围与典型场景
 
-- 只读接入 OpenSpec、Spec Kit、Superpowers、明确声明的 Markdown 事实源。
-- 校验稳定 ID、追踪关系、缺失验收、弱化/删除批准条件、规格变更影响。
-- 对可证明的违例使用 **ENFORCE**，对语义歧义使用 **REVIEW**，对优化建议使用 ADVISE。
-- 保留来源、精确候选、合同版本与覆盖缺口；解析器失败时禁止误报通过。
+- 在实施前发现重复需求 ID、断开的引用和缺失的强制验收关系。
+- 将候选与不可变批准基线比较，检测验收义务删除或结构化条件弱化。
+- 识别规格变更影响的架构、任务和测试义务，使旧证据失效。
+- 明确解释已分析范围、无法读取的来源以及需要人工判断的问题。
 
-SpecGuard 不负责产品业务批准（FlowGuard）、领域架构（ArchGuard）、真实测试执行（TestGuard）、Git 合并（GitGuard）。通用协议、规则执行和证据机制由 [GuardEngine](https://github.com/full-stack-plugins/guardengine) 提供。
+输入为显式选择的规格源、候选快照、受保护策略，以及需要时的基线和经外部身份系统核验的审批记录。规划输出包括规格图、精确定位的发现、基线差异、覆盖清单以及兼容引擎的事实/报告引用。测试义务表示需要获得什么证据，不代表行为测试已经通过。
 
-## 文档
+SpecGuard 负责规格解析和领域检查；ArchGuard 负责架构检查；CodeGuard 负责代码检查；TestGuard 负责测试证据；GitGuard 负责 Git 检查；FlowGuard 编排门禁及可信审批核验。六个守卫独立使用 [GuardEngine](https://github.com/full-stack-plugins/guardengine)，由引擎负责通用合同校验、中立规则评估和确定性证据计算。SpecGuard 和引擎都不授予业务批准、合并或发布权限。
 
-**[详细架构设计](docs/architecture.md)**：目标、组件、规格图、批准基线、与其他守卫的关系、信任边界、ADR、验收矩阵。
+## 决策、覆盖与兼容
 
-**[详细技术方案](docs/technical-design.md)**：Rust 技术选型、目录/数据模型、规则 DSL、CLI/MCP/CI、错误处理、分阶段任务和验证要求。
+确定性违例可以映射为 `enforce`；语义不确定性采用 `review`；建议采用 `advise`。引擎决策为 `ALLOW`、`BLOCK`、`REQUIRE_APPROVAL`。partial 事实意味着 `BLOCK` 和 `INDETERMINATE` 评估，不能表示完整检查通过。“完整”仅指声明的分析器范围，不代表理解了全部业务。人工批准不能覆盖分析失败或覆盖不足。
 
-## 规划命令（尚不可执行）
+共享的当前 `guard.partme.ai/v1alpha1` 协议仅支持 GuardContract YAML、GuardFacts JSON、GuardReport JSON 和精确 `forbid_relation` 断言，拒绝未知字段。图集合量化检查应放在规划的 SpecGuard 领域验证器中；来源位置、审批和编排信息不能私自添加为引擎字段。报告无签名；verify 只重算结果，不证明信任或授权。以上是共享引擎兼容基线，并非本仓库已验证的 SpecGuard 集成。
+
+规划的[集成合同](docs/integration-contract.md)使用独立的 `GuardRunEnvelope`（`guard.integration/v1alpha1`，**草案**），不是当前引擎接受的扩展。结果必须绑定精确候选/base、任务和基线；绑定变化后证据失效。可信 CI 必须重新检查 merge queue 的精确合并候选。
+
+## 规划接口——尚不可执行
 
 ~~~sh
 specguard doctor --project .
 specguard scan --project . --source openspec --format json
-specguard trace --requirement REQ-017
+specguard trace --requirement REQ-017 --format json
+specguard diff --base <approved-ref> --head HEAD
+specguard check --project . --format json
 ~~~
 
-第一阶段建立可靠的只读事实提取与结构检查，后续增加批准基线差异、独立 CI 和多守卫协同。**绝不把自然语言理解或模型评分当成强制放行证据。**
+目前没有实现这些命令的二进制或安装器。`check` 目标退出码为：`0` ALLOW、`2` BLOCK、`3` REQUIRE_APPROVAL、`4` 输入/运行/验证错误；其他命令的精确退出合同仍需定义。规划机器输出写入 stdout，诊断写入 stderr。没有已实现的 `--report` 参数。MCP 与 CI 属于后续目标，也尚未实现。
+
+OpenSpec、Spec Kit、Superpowers 及历史规格工作流插件适配均为**未经验证的兼容目标**，不意味着已经安装或成功测试外部插件。读取项目不能隐式初始化工具、下载依赖、发放批准或修改规格。
+
+## 交付与文档
+
+交付顺序为只读发现（S0）、规格图与身份检查（S1）、受保护基线比较（S2）、跨守卫证据（S3）、稳定 CLI/MCP/CI 与缓存兼容性（S4）。每条强制规则都需要合法、违规、工具失败、覆盖不足四类 fixture。本次没有运行运行时测试或 OpenSpec 验证，因为检查的目录中两者均不存在。
+
+- [架构与 ADR](docs/architecture.md)：边界、规格图、基线及运行状态、信任、集成与场景。
+- [技术设计](docs/technical-design.md)：规划模块、DTO、算法、接口、诊断与可测量验收。
+- [共享集成合同草案](docs/integration-contract.md)：与引擎线格式分离的编排绑定。
+
+待定事项包括支持的源格式版本、稳定 ID 迁移策略、审批提供方、摘要/schema 实现及实测资源预算。目前不宣称存在二进制、托管服务或签名证明。参见 [Guard 项目仓库](https://github.com/orgs/full-stack-plugins/repositories)。

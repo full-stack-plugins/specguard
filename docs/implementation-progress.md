@@ -141,3 +141,8 @@ Root accepted task 2.7 after independent review of ArchGuard `1d6d1e304e7cf403c0
 ## Source/parser resource limits (4.2 pending review)
 
 The [source safety profile](security-limits.md) now applies hard policy/metadata/path and aggregate byte admission, routes public parser calls through the established construction preflight, checks freeze/last-file/explicit-parser elapsed time, and reuses GitGuard's bounded Git object verifier. This intentionally rejects previously oversized configurations and unsupported Git storage rather than weakening source protection. Native grammar, trace identities, and exact candidate-tree binding remain intact. Independent acceptance is still pending; 19/30 accepted is unchanged.
+
+
+## Reviewed resource-limit acceptance
+
+Task 4.2 accepted at `bedcbf7a6d413ae9dc75638892902a92e91988a3` for the documented bounded/cooperative local profile. Independent review closed the repeated-root diagnostic-expansion P2: the unchanged 300-root probe falls from 90,001 statuses/25,195,115 bytes to 1,996 statuses/553,755 bytes with explicit Limit/unknown remaining scope. One global traversal counter and conservative 16MiB metadata accounting cover borrowed identities, rejected sources and pending paths before allocation. All 14 focused security tests passed on Rust1.90, including broad/deep pending-path admission; prior independent review passed 118 maintained tests and two doc tests. No global OS RSS/deadline guarantee, hostile-source sandbox or production authority is claimed. Evidence: cloud ledger `specguard-global-independent-review.md` and original `specguard-security-independent-review.md`.

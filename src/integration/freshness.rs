@@ -440,11 +440,21 @@ impl RunHistory {
             return Err(ConsumptionError::Clock);
         }
         use std::sync::atomic::Ordering;
-        self.consumption_time
-            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |previous| {
-                (now >= previous).then_some(now)
-            })
-            .map_err(|_| ConsumptionError::Clock)?;
+        let mut previous = self.consumption_time.load(Ordering::Acquire);
+        loop {
+            if now < previous {
+                return Err(ConsumptionError::Clock);
+            }
+            match self.consumption_time.compare_exchange_weak(
+                previous,
+                now,
+                Ordering::AcqRel,
+                Ordering::Acquire,
+            ) {
+                Ok(_) => break,
+                Err(observed) => previous = observed,
+            }
+        }
         match (&expected.policy.binding.baseline_digest, baseline) {
             (None, None) => {}
             (Some(digest), Some(check)) => {

@@ -269,6 +269,44 @@ struct DomainEvidence<'a> {
     required: &'a BTreeSet<Identity>,
 }
 
+// Admission estimate uses borrowed bytes only. Each source line is charged as
+// a potential node, including source identity, vector growth, and domain/rule
+// copies. Text/registry/AST work also receives a conservative byte multiplier.
+// This intentionally rejects some large but otherwise valid documents before
+// parser allocation; it is not a global allocator or OS memory limit.
+fn parser_preflight(snapshot: &SourceSnapshot) -> Result<(), String> {
+    let mut cost = 0usize;
+    let mut lines = 0usize;
+    for entry in &snapshot.inventory.entries {
+        let bytes = snapshot
+            .contents
+            .get(&entry.path)
+            .ok_or("missing source bytes")?;
+        let source_lines = bytes
+            .iter()
+            .filter(|b| **b == b'\n')
+            .count()
+            .saturating_add(1);
+        lines = lines.saturating_add(source_lines);
+        let per_line = entry
+            .path
+            .len()
+            .saturating_add(entry.namespace.len())
+            .saturating_add(std::mem::size_of::<crate::model::Requirement>())
+            .saturating_add(std::mem::size_of::<crate::model::Acceptance>())
+            .saturating_add(std::mem::size_of::<crate::model::TraceEdge>())
+            .saturating_add(128)
+            .saturating_mul(2);
+        cost = cost
+            .saturating_add(source_lines.saturating_mul(per_line))
+            .saturating_add(bytes.len().saturating_mul(16));
+        if lines > 4096 || cost > MAX_ARTIFACT_BYTES {
+            return Err("parser construction budget".into());
+        }
+    }
+    Ok(())
+}
+
 fn graph_preflight(graph: &SpecificationGraph) -> Result<(), String> {
     preflight(graph)?;
     let p = &graph.parsed;
@@ -389,6 +427,9 @@ impl PreparedRun {
         })
     }
     pub fn complete(self, finished_at: &str) -> Result<ProducedRun, TransportDiagnostic> {
+        if parser_preflight(&self.snapshot).is_err() {
+            return self.terminal(RunStatus::Error, "parser.budget", finished_at);
+        }
         let graph = build_graph(parse(&self.snapshot));
         if graph
             .parsed

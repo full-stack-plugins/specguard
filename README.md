@@ -67,7 +67,7 @@ The sequence is read-only discovery (S0), graph/identity checks (S1), protected 
 - [Technical design](docs/technical-design.md): proposed modules, DTOs, algorithms, interfaces, diagnostics and measurable acceptance.
 - [Draft shared integration contract](docs/integration-contract.md): orchestration bindings separate from the engine wire protocol.
 
-Remaining work includes a real approval provider, authenticated candidate/gate integration, complete CLI decision/publication support, further resource qualification, MCP and release. The local binary does not provide hosted service or signed attestation. See [the Guard repositories](https://github.com/orgs/full-stack-plugins/repositories).
+Remaining work includes a real approval provider, authenticated candidate/gate integration, complete CLI decision/publication support, further resource qualification, MCP qualification and release. The local binary does not provide hosted service or signed attestation. See [the Guard repositories](https://github.com/orgs/full-stack-plugins/repositories).
 
 
 ## OpenSpec implementation backlog
@@ -75,3 +75,5 @@ Remaining work includes a real approval provider, authenticated candidate/gate i
 The incremental [proposal](openspec/changes/add-specification-baseline-analysis/proposal.md), [design](openspec/changes/add-specification-baseline-analysis/design.md), [requirements](openspec/changes/add-specification-baseline-analysis/specs/) and [tasks](openspec/changes/add-specification-baseline-analysis/tasks.md) translate the architecture into pending implementation work. See the [cross-repository dependency roadmap](openspec/guard-roadmap.md) and [structural validation record](openspec/validation-2026-10-09.md). Acceptance is recorded per task after independent review; the current checkpoint is27/30. Newly implemented slices remain unchecked until reviewed; CLI remains partial, and incomplete capabilities stay partial. Historical inventory and validation records remain linked as historical evidence rather than current capability claims.
 
 Local Git-backed SDK: [exact committed-source binding](docs/git-source-binding.md). The current workspace now explicitly requires Rust1.90 and the reviewed Unix GitGuard dependency; Rust1.90 library/Git-path tests were actually run. Existing CLI remains the local advisory profile.
+
+The optional [local read-only MCP profile](docs/mcp-readonly.md) exposes discovery, checking and session evidence over stdio. It carries no approval or execution authority; independent task 4.4 acceptance remains pending.

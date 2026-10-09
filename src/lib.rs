@@ -14,3 +14,5 @@ pub mod architecture;
 pub mod cli;
 
 pub mod cache;
+
+pub mod mcp;

@@ -62,7 +62,7 @@
 - [x] 3.5 在 `src/integration/binding.rs` 实现完整 invocation/源/基线绑定和实际对象校验；`tests/queue_binding.rs` 验证 branch HEAD 与 synthetic queue candidate 差异、base/merge group 变化。对应 “Exact candidate binding and concurrent isolation”；验收为精确干净冻结候选才能作为可信门禁输入。
 - [x] 3.6 在 `src/integration/freshness.rs` 实现完整绑定幂等键、新 runId 重试和当前指针比较更新；`tests/concurrent_runs.rs` 同时运行两需求及晚返回旧候选。对应 “Exact candidate binding and concurrent isolation”；验收为无交叉满足，晚完成仅追加历史。
 - [x] 3.7 在 `src/integration/freshness.rs`、`tests/evidence_invalidation.rs` 实现并验证 candidate/base/queue、policy、analyzer/coverage、baseline、approval expiry/revocation 全部失效条件；对应 “Authenticated freshness and audit references”；验收为逐项变更均拒绝旧证据，明确 approval 无 TTL 不免除撤销/输入失效。
-- [ ] 3.8 在 `src/integration/audit.rs` 实现附加式身份/绑定/摘要/因果记录及授权 evidence URI 解析；`tests/audit_integrity.rs` 检验篡改附件、伪生产者、越界 URI 和秘密脱敏。对应 “Authenticated freshness and audit references”；验收为 verify 重算不被当成信任，未选提供方前生产信任 profile 不启用。
+- [x] 3.8 在 `src/integration/audit.rs` 实现附加式身份/绑定/摘要/因果记录及授权 evidence URI 解析；`tests/audit_integrity.rs` 检验篡改附件、伪生产者、越界 URI 和秘密脱敏。对应 “Authenticated freshness and audit references”；验收为 verify 重算不被当成信任，未选提供方前生产信任 profile 不启用。
 
 ## 4. Interfaces, rollout and joint validation — S4 / END-TO-END
 

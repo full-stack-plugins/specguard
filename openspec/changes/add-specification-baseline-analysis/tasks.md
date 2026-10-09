@@ -1,6 +1,6 @@
 # Specification Baseline Analysis Implementation Plan
 
-> **For agentic workers:** 后续实现使用 `superpowers:subagent-driven-development` 或 `superpowers:executing-plans` 按任务推进；后续已授权实现；根协调者已验收 15/30 项（含 7deaf72 的 native parser 1.4），新切片须独立复核后登记。
+> **For agentic workers:** 后续实现使用 `superpowers:subagent-driven-development` 或 `superpowers:executing-plans` 按任务推进；后续已授权实现；根协调者已验收 16/30 项（含 7deaf72 的 native parser 1.4），新切片须独立复核后登记。
 
 **Goal:** 建立只读规格图、可信批准基线、冻结验收义务和精确候选绑定证据。
 
@@ -57,7 +57,7 @@
 
 - [x] 3.1 在 `src/evidence.rs` 实现受保护的精确关系投影和映射覆盖清单；`tests/engine_projection.rs` 验证未知字段/算子拒绝、空/未映射 enforce 发现失败关闭。对应 “Protected exact-relation engine projection”；验收为每个强制发现有精确合同匹配，GE-CONTRACT/ADAPTER golden vectors 通过后才宣称互操作。
 - [x] 3.2 在 `src/integration/envelope.rs` 接入独立 envelope schema、版本/能力声明与 contract/facts/report/domain 引用；`tests/envelope_contract.rs` 验证未知版本/字段、缺附件、decision/report 不同。对应 “Bound envelope and distinct failure transport”；验收为严格拒绝不匹配且不向 v1alpha1 引擎对象添加字段。
-- [ ] 3.3 在 `src/integration/run.rs` 实现绑定前诊断和绑定后 completed/error/cancelled 状态；`tests/run_state.rs` 覆盖参数错误、崩溃、取消、partial、旧产物。对应 “Bound envelope and distinct failure transport”；验收为绑定前无 envelope，后置错误 decision=null，合法 partial 为 BLOCK/INDETERMINATE。
+- [x] 3.3 在 `src/integration/run.rs` 实现绑定前诊断和绑定后 completed/error/cancelled 状态；`tests/run_state.rs` 覆盖参数错误、崩溃、取消、partial、旧产物。对应 “Bound envelope and distinct failure transport”；验收为绑定前无 envelope，后置错误 decision=null，合法 partial 为 BLOCK/INDETERMINATE。
 - [ ] 3.4 在 `src/integration/approval.rs`、`tests/report_immutability.rs` 对接 GE-TRUST 认证端口并验证批准引用不重写专家 decision；对应 “Bound envelope and distinct failure transport”“Authenticated freshness and audit references”；验收为 REQUIRE_APPROVAL 保持原值，FlowGuard 新报告具有自己的 scope，partial/tool error 不能被批准修复。
 - [ ] 3.5 在 `src/integration/binding.rs` 实现完整 invocation/源/基线绑定和实际对象校验；`tests/queue_binding.rs` 验证 branch HEAD 与 synthetic queue candidate 差异、base/merge group 变化。对应 “Exact candidate binding and concurrent isolation”；验收为精确干净冻结候选才能作为可信门禁输入。
 - [ ] 3.6 在 `src/integration/freshness.rs` 实现完整绑定幂等键、新 runId 重试和当前指针比较更新；`tests/concurrent_runs.rs` 同时运行两需求及晚返回旧候选。对应 “Exact candidate binding and concurrent isolation”；验收为无交叉满足，晚完成仅追加历史。

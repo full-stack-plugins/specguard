@@ -44,3 +44,9 @@ T['TypedSpecificationGraph'] = obj(graph=ref('SpecificationGraph'),targets=ref('
 T['Finding'] = obj(kind=enum('duplicate','missing_requirement','missing_acceptance','broken_reference','incomplete','tool_error'),key=ref('Identity'),sources=arr(ref('SourceRef')))
 trace = obj(apiVersion={'const':'specguard.trace/v1alpha1'},graph=ref('TypedSpecificationGraph'),required={**arr(ref('Identity')), 'minItems':1},findings=arr(ref('Finding')))
 (out/'trace.json').write_text(json.dumps({'$schema':'https://json-schema.org/draft/2020-12/schema',**trace,'$defs':T},indent=2)+'\n')
+# Frozen architecture handoff reuses the trace and baseline shapes unchanged.
+A = dict(T)
+A['TraceArtifact'] = trace
+A['ArchitectureReference'] = obj(requirement=ref('Identity'),requirementSource=ref('SourceRef'),adr=ref('Identity'),adrSource=ref('SourceRef'),relationSource=ref('SourceRef'))
+architecture = obj(apiVersion={'const':'specguard.architecture-handoff/v1alpha1'},authenticationProfile={'const':'fixture-only'},repository=S,baseline=ref('ApprovedBaseline'),baselineDigest=S,candidateBinding=ref('CandidateBinding'),sourceDigest=S,scope={**arr(ref('Identity')),'minItems':1,'maxItems':256},snapshot=ref('SourceSnapshot'),trace=ref('TraceArtifact'),architectureReferences=arr(ref('ArchitectureReference')))
+(out/'architecture-handoff.json').write_text(json.dumps({'$schema':'https://json-schema.org/draft/2020-12/schema',**architecture,'$defs':A},indent=2)+'\n')

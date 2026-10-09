@@ -66,3 +66,8 @@ OpenSpec、Spec Kit、Superpowers 及历史规格工作流插件适配均为**�
 - [共享集成合同草案](docs/integration-contract.md)：与引擎线格式分离的编排绑定。
 
 待定事项包括支持的源格式版本、稳定 ID 迁移策略、审批提供方、摘要/schema 实现及实测资源预算。目前不宣称存在二进制、托管服务或签名证明。参见 [Guard 项目仓库](https://github.com/orgs/full-stack-plugins/repositories)。
+
+
+## OpenSpec 实施待办
+
+新增增量 [proposal](openspec/changes/add-specification-baseline-analysis/proposal.md)、[design](openspec/changes/add-specification-baseline-analysis/design.md)、[规范](openspec/changes/add-specification-baseline-analysis/specs/) 与 [tasks](openspec/changes/add-specification-baseline-analysis/tasks.md)，将架构方案拆成待实施工作。参阅[跨仓依赖路线图](openspec/guard-roadmap.md)与[结构验证记录](openspec/validation-2026-10-09.md)。所有新增实施任务保持未勾选；本分支新增规划，不新增产品功能。前文源码树清单和验证限制对应检查基线或较早的架构审阅阶段；本次另行新增 OpenSpec 文档并记录实际 CLI 校验。既有 change 的任务归属和历史完成证据继续保留。

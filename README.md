@@ -66,3 +66,8 @@ The sequence is read-only discovery (S0), graph/identity checks (S1), protected 
 - [Draft shared integration contract](docs/integration-contract.md): orchestration bindings separate from the engine wire protocol.
 
 Outstanding choices include supported source-format versions, stable-ID migration policy, approval provider, digest/schema implementation and measured resource budgets. No binary, hosted service or signed attestation is claimed. See [the Guard repositories](https://github.com/orgs/full-stack-plugins/repositories).
+
+
+## OpenSpec implementation backlog
+
+The incremental [proposal](openspec/changes/add-specification-baseline-analysis/proposal.md), [design](openspec/changes/add-specification-baseline-analysis/design.md), [requirements](openspec/changes/add-specification-baseline-analysis/specs/) and [tasks](openspec/changes/add-specification-baseline-analysis/tasks.md) translate the architecture into pending implementation work. See the [cross-repository dependency roadmap](openspec/guard-roadmap.md) and [structural validation record](openspec/validation-2026-10-09.md). Every new implementation task remains unchecked; this branch adds planning artifacts, not product features. Earlier source-tree inventories and validation limitations describe the inspected baseline or earlier architecture-review stage; this planning stage adds OpenSpec artifacts and separately records actual CLI validation. Existing change ownership and historical completion evidence remain intact.

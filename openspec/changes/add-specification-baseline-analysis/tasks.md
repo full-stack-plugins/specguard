@@ -73,7 +73,7 @@
 - [x] 4.3 在 `src/cache.rs` 实现可关闭的派生缓存，键包括源/解析器版本/policy/coverage/baseline；`tests/cache_parity.rs` 比较开关缓存及每项键变化。对应 “Read-only interfaces and safe execution limits”；验收为结果相同、失配重算、审批核验不被跳过。
 - [ ] 4.4 在 `src/mcp.rs` 定义发现/检查/证据查询工具及认证/取消合同，选定依赖后才锁版本；`tests/mcp_readonly.rs` 验证未知工具、未授权请求、取消。对应 “Read-only interfaces and safe execution limits”；验收为无提交/批准/合并入口。
 - [ ] 4.5 在 `examples/ci/`、`tests/ci_protected_policy.rs` 实现固定分析器/受保护合同/精确候选的 CI 演练，可选 SARIF 仅定位；对应 “Protected exact-relation engine projection”“Exact candidate binding and concurrent isolation”；验收为候选修改规则无效、缺可信绑定/覆盖的报告不被消费。
-- [ ] 4.6 在 `docs/compatibility.md`、`fixtures/compatibility/`、`tests/compatibility_matrix.rs` 冻结 source/SDK/envelope/profile 实测矩阵及独立分发策略；对应 “Phased compatibility rollout and reversible rollback”；验收为未知能力失败关闭，无隐含 N/N-1，固定源码可开发而生产包等待 GE-RELEASE。
+- [x] 4.6 在 `docs/compatibility.md`、`fixtures/compatibility/`、`tests/compatibility_matrix.rs` 冻结 source/SDK/envelope/profile 实测矩阵及独立分发策略；对应 “Phased compatibility rollout and reversible rollback”；验收为未知能力失败关闭，无隐含 N/N-1，固定源码可开发而生产包等待 GE-RELEASE。
 - [ ] 4.7 在 `examples/rollout/`、`tests/rollout_rollback.rs` 实现 advisory→shadow→opt-in→enforce 的显式配置和适配器独立回退；对应 “Phased compatibility rollout and reversible rollback”；验收为历史附件/源文档保留，必需能力回退后不假放行，CodeGuard 原生命令和退出码不变。
 - [ ] 4.8 在 `fixtures/end-to-end/`、`tests/joint_gate.rs` 与相关守卫执行两个并行需求、精确 synthetic queue candidate、审批过期/撤销、基线漂移、晚完成和回退联合场景；对应 “Phased compatibility rollout and reversible rollback”“Exact candidate binding and concurrent isolation”；验收为保存真实对端版本/命令/结果、引用 CodeGuard native parity 证据，不用模拟结果或 OpenSpec 文档验证勾选完成。
 

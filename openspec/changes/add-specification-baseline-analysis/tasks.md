@@ -70,7 +70,7 @@
 
 - [ ] 4.1 在 `src/cli.rs` 定版五个命令输入/输出、非 check 退出合同及原子报告写入；`tests/cli_contract.rs` 验证 check 0/2/3/4、取消 4、JSON stdout/诊断 stderr 分离及旧文件不算新成功。对应 “Read-only interfaces and safe execution limits”；验收为 help 与真实 flags 一致，不凭空承诺 --report。
 - [x] 4.2 在 `src/source.rs`、`src/parser.rs` 实施经过测量的路径/文件数/字节/AST/时间预算；`tests/security_limits.rs` 验证提示注入文本、绝对路径、symlink、深递归和超时。对应 “Read-only interfaces and safe execution limits”；验收为零脚本执行/越权写入且预算缺口可诊断。
-- [ ] 4.3 在 `src/cache.rs` 实现可关闭的派生缓存，键包括源/解析器版本/policy/coverage/baseline；`tests/cache_parity.rs` 比较开关缓存及每项键变化。对应 “Read-only interfaces and safe execution limits”；验收为结果相同、失配重算、审批核验不被跳过。
+- [x] 4.3 在 `src/cache.rs` 实现可关闭的派生缓存，键包括源/解析器版本/policy/coverage/baseline；`tests/cache_parity.rs` 比较开关缓存及每项键变化。对应 “Read-only interfaces and safe execution limits”；验收为结果相同、失配重算、审批核验不被跳过。
 - [ ] 4.4 在 `src/mcp.rs` 定义发现/检查/证据查询工具及认证/取消合同，选定依赖后才锁版本；`tests/mcp_readonly.rs` 验证未知工具、未授权请求、取消。对应 “Read-only interfaces and safe execution limits”；验收为无提交/批准/合并入口。
 - [ ] 4.5 在 `examples/ci/`、`tests/ci_protected_policy.rs` 实现固定分析器/受保护合同/精确候选的 CI 演练，可选 SARIF 仅定位；对应 “Protected exact-relation engine projection”“Exact candidate binding and concurrent isolation”；验收为候选修改规则无效、缺可信绑定/覆盖的报告不被消费。
 - [ ] 4.6 在 `docs/compatibility.md`、`fixtures/compatibility/`、`tests/compatibility_matrix.rs` 冻结 source/SDK/envelope/profile 实测矩阵及独立分发策略；对应 “Phased compatibility rollout and reversible rollback”；验收为未知能力失败关闭，无隐含 N/N-1，固定源码可开发而生产包等待 GE-RELEASE。

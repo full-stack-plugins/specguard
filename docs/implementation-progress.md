@@ -146,3 +146,8 @@ The [source safety profile](security-limits.md) now applies hard policy/metadata
 ## Reviewed resource-limit acceptance
 
 Task 4.2 accepted at `bedcbf7a6d413ae9dc75638892902a92e91988a3` for the documented bounded/cooperative local profile. Independent review closed the repeated-root diagnostic-expansion P2: the unchanged 300-root probe falls from 90,001 statuses/25,195,115 bytes to 1,996 statuses/553,755 bytes with explicit Limit/unknown remaining scope. One global traversal counter and conservative 16MiB metadata accounting cover borrowed identities, rejected sources and pending paths before allocation. All 14 focused security tests passed on Rust1.90, including broad/deep pending-path admission; prior independent review passed 118 maintained tests and two doc tests. No global OS RSS/deadline guarantee, hostile-source sandbox or production authority is claimed. Evidence: cloud ledger `specguard-global-independent-review.md` and original `specguard-security-independent-review.md`.
+
+
+## Reviewed optional parse cache
+
+Task 4.3 accepted at `66498f2a849f4ef56208d5d253288a5e604e1ca7`. Independent fixed-source Rust1.90 regression passed134 committed tests plus a separate cross-controller-scope/hot-panic probe. The disabled-by-default cache retains only private complete parse results with full source/policy/coverage/baseline/version keys and bounded count/charge. Failed/cancelled/partial finalization cannot insert new entries; every run rebuilds graph, facts, GE report and envelope. Real Git preparation and separate fresh approval checks remain required. No eligibility/envelope/authority result is cached. Evidence: cloud ledger `specguard-cache-independent-review.md`; no production cache, RSS or timing guarantee is claimed.

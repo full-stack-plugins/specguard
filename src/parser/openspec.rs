@@ -5,7 +5,7 @@ use crate::{
     model::*,
     source::{Limits, SourceEntry, SourceSnapshot},
 };
-use pulldown_cmark::{Event, Parser, Tag};
+use pulldown_cmark::{CodeBlockKind, Event, Parser, Tag};
 use serde::Deserialize;
 use std::{collections::BTreeSet, ops::Range, time::Instant};
 type ParseError = (Terminal, String);
@@ -170,7 +170,14 @@ fn structure(text: &str, limits: &Limits, start: Instant) -> Result<Structure, P
                             body: if end < text.len() { end + 1 } else { end },
                         });
                     }
-                    Tag::CodeBlock(_) => code.push(range),
+                    Tag::CodeBlock(CodeBlockKind::Indented) => {
+                        return Err((
+                            Terminal::Unsupported,
+                            "indented code requires an explicitly verified native capability"
+                                .into(),
+                        ));
+                    }
+                    Tag::CodeBlock(CodeBlockKind::Fenced(_)) => code.push(range),
                     _ => {}
                 }
             }
@@ -215,7 +222,11 @@ fn requirement_body(text: &str, range: Range<usize>, code: &[Range<usize>]) -> S
         if line.is_empty() {
             continue;
         }
-        if line.starts_with("**") && line[2..].contains("**:") {
+        if line
+            .strip_prefix("**")
+            .and_then(|rest| rest.split_once("**:"))
+            .is_some_and(|(name, _)| !name.is_empty() && !name.contains('*'))
+        {
             metadata.push(line)
         } else {
             body.push(line)

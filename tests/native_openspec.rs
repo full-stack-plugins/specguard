@@ -220,3 +220,28 @@ fn native_identity_registry_is_part_of_source_digest_and_renames_are_explicit() 
     assert_ne!(new.digest, changed_ids.digest);
     assert_eq!(parse(&changed_ids).requirements[0].key, key("R2"));
 }
+
+#[test]
+fn bold_prose_is_not_discarded_as_metadata() {
+    let extra = "**Important** prose contains **: and MUST remain in the requirement text.";
+    let text = MAIN.replace(
+        "#### Scenario: Correct password",
+        &format!("{extra}\n\n#### Scenario: Correct password"),
+    );
+    let (_, s) = native_snapshot("openspec/1.14.1-main", text.as_bytes(), IDS.as_bytes());
+    let p = parse(&s);
+    assert!(build_graph(p.clone()).complete());
+    assert!(p.requirements[0].text.contains(extra));
+}
+
+#[test]
+fn indented_code_is_an_explicitly_unsupported_native_capability() {
+    let text = MAIN.replace(
+        "#### Scenario: Correct password",
+        "    The application MUST enforce another constraint.\n\n#### Scenario: Correct password",
+    );
+    let (_, s) = native_snapshot("openspec/1.14.1-main", text.as_bytes(), IDS.as_bytes());
+    let p = parse(&s);
+    assert!(p.sources.iter().any(|s| s.status == Terminal::Unsupported));
+    assert!(!build_graph(p).complete());
+}

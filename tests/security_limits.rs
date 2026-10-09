@@ -186,3 +186,67 @@ fn discovery_checks_deadline_after_last_file_work() {
     );
     assert!(inventory.entries.is_empty());
 }
+
+#[test]
+fn discovery_metadata_expansion_stays_bounded() {
+    let root = common::repo();
+    std::fs::create_dir(root.path().join("specs")).unwrap();
+    for i in 0..300 {
+        std::fs::write(
+            root.path()
+                .join(format!("specs/{i:03}{}.md", "x".repeat(200))),
+            b"xx",
+        )
+        .unwrap();
+    }
+    let mut p = common::policy();
+    p.roots = vec![p.roots[0].clone(); 300];
+    p.limits.max_bytes = 1;
+    p.limits.max_millis = 30000;
+    let out = specguard::source::discover(root.path(), &p).unwrap();
+    let len = serde_json::to_vec(&out).unwrap().len();
+    eprintln!(
+        "statuses={} entries={} encoded={len}",
+        out.sources.len(),
+        out.entries.len()
+    );
+    assert!(
+        len <= guardengine::integration::MAX_ARTIFACT_BYTES,
+        "discovery diagnostics exceed metadata budget"
+    );
+    assert!(
+        out.sources
+            .iter()
+            .any(|s| s.status == Terminal::Limit && s.reason.contains("global"))
+    );
+    assert!(out.sources.len() <= 4002);
+}
+
+#[test]
+fn pending_paths_are_admitted_before_broad_deep_expansion() {
+    let d = repo();
+    let mut directory = d.path().join("specs");
+    for _ in 0..5 {
+        std::fs::create_dir_all(&directory).unwrap();
+        for n in 0..900 {
+            std::fs::write(
+                directory.join(format!("z{n:03}{}.md", "x".repeat(190))),
+                b"",
+            )
+            .unwrap();
+        }
+        directory = directory.join(format!("000{}", "d".repeat(190)));
+    }
+    let mut p = policy();
+    p.limits.max_millis = 30_000;
+    let out = discover(d.path(), &p).unwrap();
+    assert!(out.entries.is_empty());
+    assert!(
+        out.sources
+            .iter()
+            .any(|s| s.status == Terminal::Limit && s.reason.contains("global discovery metadata"))
+    );
+    assert!(
+        serde_json::to_vec(&out).unwrap().len() <= guardengine::integration::MAX_ARTIFACT_BYTES
+    );
+}

@@ -228,6 +228,16 @@ impl CapturedFile {
 fn read_bounded(root: &Path, path: &str, max: usize) -> Result<Vec<u8>, String> {
     Ok(CapturedFile::read(root, path, max)?.bytes)
 }
+struct DiscoveryBudget(usize);
+impl DiscoveryBudget {
+    fn admit(&mut self, cost: usize) -> bool {
+        if cost > self.0 {
+            return false;
+        }
+        self.0 -= cost;
+        true
+    }
+}
 pub fn discover(root: &Path, policy: &SourcePolicy) -> Result<SourceInventory, String> {
     use std::{collections::BTreeSet, time::Instant};
     policy.limits.validate()?;
@@ -242,18 +252,46 @@ pub fn discover(root: &Path, policy: &SourcePolicy) -> Result<SourceInventory, S
     let mut sources = Vec::new();
     let mut seen = BTreeSet::new();
     let mut authorities = BTreeMap::new();
-    for config in &policy.roots {
+    // Monotone, cross-root admission for retained metadata and pending paths.
+    // Six bytes per input byte cover JSON escaping; row overhead also charges
+    // owned strings/collection slots. Reserve space for a static terminal gap.
+    let mut metadata_budget = DiscoveryBudget(MAX_SOURCE_BYTES - 1024);
+    let mut visited = 0usize;
+    'roots: for config in &policy.roots {
+        macro_rules! admit {
+            ($($value:expr),+ $(,)?) => {{
+                let cost = 1024usize $(.saturating_add($value.len().saturating_mul(6)))+;
+                if !metadata_budget.admit(cost) {
+                    sources.push(SourceStatus { path: "<scope>".into(), status: Terminal::Limit, reason: "global discovery metadata budget exceeded; remaining scope unknown".into() });
+                    break 'roots;
+                }
+            }};
+        }
+        macro_rules! emit {
+            ($path:expr, $status:expr, $reason:expr) => {{
+                let diagnostic_path: &str = $path;
+                let diagnostic_reason: &str = $reason;
+                admit!(diagnostic_path, diagnostic_reason);
+                sources.push(SourceStatus {
+                    path: diagnostic_path.into(),
+                    status: $status,
+                    reason: diagnostic_reason.into(),
+                });
+            }};
+        }
         if config.namespace.len() > 256 || config.authority.len() > 256 || config.format.len() > 128
         {
             return Err("source metadata budget exceeded".into());
         }
         safe(root, &config.path)?;
+        admit!(
+            &config.path,
+            &config.namespace,
+            &config.authority,
+            &config.format
+        );
         if !supported(&config.format) {
-            sources.push(SourceStatus {
-                path: config.path.clone(),
-                status: Terminal::Unsupported,
-                reason: "unsupported profile".into(),
-            });
+            emit!(&config.path, Terminal::Unsupported, "unsupported profile");
             continue;
         }
         if config.namespace.is_empty() || config.authority.is_empty() {
@@ -263,38 +301,40 @@ pub fn discover(root: &Path, policy: &SourcePolicy) -> Result<SourceInventory, S
             authorities.insert(config.namespace.clone(), config.authority.clone())
             && previous != config.authority
         {
-            sources.push(SourceStatus {
-                path: config.path.clone(),
-                status: Terminal::Conflict,
-                reason: "multiple authorities in namespace".into(),
-            });
+            emit!(
+                &config.path,
+                Terminal::Conflict,
+                "multiple authorities in namespace"
+            );
         }
         let mut pending = vec![(config.path.clone(), 0)];
         let initial = entries.len();
-        let mut visited = 0usize;
         while let Some((relative, depth)) = pending.pop() {
             visited += 1;
+            if visited > policy.limits.max_files.saturating_mul(2).saturating_add(1) {
+                emit!(
+                    &relative,
+                    Terminal::Limit,
+                    "global discovery traversal budget exceeded; remaining scope unknown"
+                );
+                break 'roots;
+            }
             if entries.len() >= policy.limits.max_files
-                || visited > policy.limits.max_files.saturating_mul(2).saturating_add(1)
                 || depth > policy.limits.max_depth
                 || start.elapsed().as_millis() >= policy.limits.max_millis as u128
             {
-                sources.push(SourceStatus {
-                    path: relative,
-                    status: Terminal::Limit,
-                    reason: "discovery budget exceeded; remaining scope unknown".into(),
-                });
+                emit!(
+                    &relative,
+                    Terminal::Limit,
+                    "discovery budget exceeded; remaining scope unknown"
+                );
                 break;
             }
             let path = safe(root, &relative)?;
             let metadata = match std::fs::metadata(&path) {
                 Ok(m) => m,
                 Err(e) => {
-                    sources.push(SourceStatus {
-                        path: relative,
-                        status: Terminal::IoError,
-                        reason: e.to_string(),
-                    });
+                    emit!(&relative, Terminal::IoError, &e.to_string());
                     continue;
                 }
             };
@@ -307,28 +347,26 @@ pub fn discover(root: &Path, policy: &SourcePolicy) -> Result<SourceInventory, S
                         .file_name()
                         .into_string()
                         .map_err(|_| "non UTF-8 path")?;
+                    if relative.len().saturating_add(name.len()).saturating_add(1) > 4096 {
+                        return Err("source path budget exceeded".into());
+                    }
+                    admit!(&relative, &name);
                     children.push(format!("{relative}/{name}"));
                 }
                 children.sort();
                 if children.len() > policy.limits.max_files {
-                    sources.push(SourceStatus {
-                        path: relative,
-                        status: Terminal::Limit,
-                        reason: "directory entry budget".into(),
-                    });
+                    emit!(&relative, Terminal::Limit, "directory entry budget");
                     continue;
                 }
                 pending.extend(children.into_iter().rev().map(|p| (p, depth + 1)));
                 continue;
             }
-            if !seen.insert(relative.clone()) {
-                sources.push(SourceStatus {
-                    path: relative,
-                    status: Terminal::Conflict,
-                    reason: "overlapping source roots".into(),
-                });
+            if seen.contains(&relative) {
+                emit!(&relative, Terminal::Conflict, "overlapping source roots");
                 continue;
             }
+            admit!(&relative);
+            seen.insert(relative.clone());
             match read_bounded(
                 root,
                 &relative,
@@ -340,13 +378,10 @@ pub fn discover(root: &Path, policy: &SourcePolicy) -> Result<SourceInventory, S
                 Ok(bytes) => {
                     let source_digest = digest(&bytes);
                     if start.elapsed().as_millis() >= policy.limits.max_millis as u128 {
-                        sources.push(SourceStatus {
-                            path: relative,
-                            status: Terminal::Limit,
-                            reason: "discovery time budget exceeded".into(),
-                        });
+                        emit!(&relative, Terminal::Limit, "discovery time budget exceeded");
                         break;
                     }
+                    admit!(&relative, &config.format, &config.namespace, &source_digest);
                     total_bytes += bytes.len();
                     entries.push(SourceEntry {
                         path: relative.clone(),
@@ -354,29 +389,20 @@ pub fn discover(root: &Path, policy: &SourcePolicy) -> Result<SourceInventory, S
                         namespace: config.namespace.clone(),
                         digest: source_digest,
                     });
-                    sources.push(SourceStatus {
-                        path: relative,
-                        status: Terminal::Complete,
-                        reason: "discovered".into(),
-                    });
+                    emit!(&relative, Terminal::Complete, "discovered");
                 }
-                Err(e) => sources.push(SourceStatus {
-                    path: relative,
-                    status: if e == "byte limit" {
+                Err(e) => {
+                    let status = if e == "byte limit" {
                         Terminal::Limit
                     } else {
                         Terminal::IoError
-                    },
-                    reason: e,
-                }),
+                    };
+                    emit!(&relative, status, &e);
+                }
             }
         }
         if entries.len() == initial && !sources.iter().any(|s| s.path == config.path) {
-            sources.push(SourceStatus {
-                path: config.path.clone(),
-                status: Terminal::IoError,
-                reason: "no sources".into(),
-            });
+            emit!(&config.path, Terminal::IoError, "no sources");
         }
     }
     if policy.roots.is_empty() {
@@ -395,6 +421,7 @@ pub fn discover(root: &Path, policy: &SourcePolicy) -> Result<SourceInventory, S
         limits: policy.limits.clone(),
     })
 }
+
 pub fn freeze(
     root: &Path,
     inventory: &SourceInventory,

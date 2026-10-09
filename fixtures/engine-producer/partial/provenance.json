@@ -1,0 +1,11 @@
+{
+  "candidateCommitObject": "tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904\nauthor fixture <fixture@example.invalid> 1791538743 +0000\ncommitter fixture <fixture@example.invalid> 1791538743 +0000\n\nfixture\n",
+  "candidateOid": "2cdb359f28b3a064b2c82fd78a7778b9c239d065",
+  "engineCommit": "6ae9bb4a2f77309dc7bf9216095967c2710c038e",
+  "generation": "cargo run --locked --example generate_engine_fixture -- fixtures/engine-producer",
+  "implementationCommit": "082e8641ddbdfb1453c82ceeba26f12f45d22fa1",
+  "objectFormat": "sha1",
+  "profile": "local-fixture-not-authenticated",
+  "sourceBytes": "malformed",
+  "sourcePath": "specs/a.md"
+}

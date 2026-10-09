@@ -1,0 +1,1 @@
+{"apiVersion":"guard.partme.ai/v1alpha1","kind":"GuardFacts","analyzer":{"id":"specguard.structural","version":"1"},"subject":{"id":"fixture-partial","snapshotDigest":"sha256:ce39403bfd85c055564b147efb9349dfa3222c167d15d898b332bb6eeb958c16"},"completeness":"partial","facts":[],"diagnostics":["required source/profile coverage is incomplete"]}

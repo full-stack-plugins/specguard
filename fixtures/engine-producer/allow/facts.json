@@ -1,0 +1,1 @@
+{"apiVersion":"guard.partme.ai/v1alpha1","kind":"GuardFacts","analyzer":{"id":"specguard.structural","version":"1"},"subject":{"id":"fixture-allow","snapshotDigest":"sha256:b2ddd89666e6a5a92a84fdcb1fc956fa337dce0f0f6ee8b0d8db318f4c5b9971"},"completeness":"complete","facts":[],"diagnostics":[]}

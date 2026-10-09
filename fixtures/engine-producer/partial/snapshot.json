@@ -1,0 +1,47 @@
+{
+  "apiVersion": "specguard.domain/v1alpha1",
+  "inventory": {
+    "apiVersion": "specguard.domain/v1alpha1",
+    "entries": [
+      {
+        "path": "specs/a.md",
+        "format": "markdown-explicit/v1",
+        "namespace": "demo",
+        "digest": "sha256:d336bfaa3c811db64d67dd5b5d07eac447e94642421c72666a8e1b09f26042b4"
+      }
+    ],
+    "sources": [
+      {
+        "path": "specs/a.md",
+        "status": "complete",
+        "reason": "discovered"
+      }
+    ],
+    "limits": {
+      "maxFiles": 1000,
+      "maxBytes": 1048576,
+      "maxLines": 10000,
+      "maxDepth": 16,
+      "maxMillis": 5000
+    }
+  },
+  "binding": {
+    "candidateOid": "2cdb359f28b3a064b2c82fd78a7778b9c239d065",
+    "baseOid": "2cdb359f28b3a064b2c82fd78a7778b9c239d065",
+    "objectFormat": "sha1"
+  },
+  "contents": {
+    "specs/a.md": [
+      109,
+      97,
+      108,
+      102,
+      111,
+      114,
+      109,
+      101,
+      100
+    ]
+  },
+  "digest": "sha256:ce39403bfd85c055564b147efb9349dfa3222c167d15d898b332bb6eeb958c16"
+}

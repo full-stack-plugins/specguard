@@ -1,0 +1,58 @@
+{
+  "apiVersion": "guard.integration/v1alpha1",
+  "kind": "GuardRunEnvelope",
+  "runId": "fixture-error",
+  "producer": {
+    "guard": "SpecGuard",
+    "version": "0.1.0",
+    "analyzerId": "specguard.structural",
+    "analyzerVersion": "1"
+  },
+  "binding": {
+    "repoId": "fixture-repository",
+    "taskId": "task-1",
+    "worktreeId": "worktree-1",
+    "requirementIds": [
+      "demo:R1"
+    ],
+    "candidateOid": "2cdb359f28b3a064b2c82fd78a7778b9c239d065",
+    "baseOid": "2cdb359f28b3a064b2c82fd78a7778b9c239d065",
+    "mergeGroupId": null,
+    "sourceSnapshotDigest": "sha256:b2ddd89666e6a5a92a84fdcb1fc956fa337dce0f0f6ee8b0d8db318f4c5b9971",
+    "baselineDigest": null
+  },
+  "runStatus": "error",
+  "decision": null,
+  "coverage": {
+    "status": "partial",
+    "requiredScopes": [
+      "profile:specguard.structural/v1",
+      "requirement:demo:R1",
+      "source:specs/a.md"
+    ],
+    "observedScopes": [],
+    "missingScopes": [
+      "profile:specguard.structural/v1",
+      "requirement:demo:R1",
+      "source:specs/a.md"
+    ]
+  },
+  "artifacts": {
+    "contract": null,
+    "facts": null,
+    "report": null,
+    "domain": []
+  },
+  "approvalRefs": [],
+  "diagnostics": [
+    {
+      "code": "execution.failed",
+      "message": "SpecGuard did not complete this bound attempt",
+      "retryable": true,
+      "source": null
+    }
+  ],
+  "startedAt": "2026-10-09T10:00:00Z",
+  "finishedAt": "2026-10-09T10:00:01Z",
+  "expiresAt": null
+}

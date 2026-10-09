@@ -1,0 +1,69 @@
+{
+  "apiVersion": "guard.integration/v1alpha1",
+  "kind": "GuardRunEnvelope",
+  "runId": "fixture-allow",
+  "producer": {
+    "guard": "SpecGuard",
+    "version": "0.1.0",
+    "analyzerId": "specguard.structural",
+    "analyzerVersion": "1"
+  },
+  "binding": {
+    "repoId": "fixture-repository",
+    "taskId": "task-1",
+    "worktreeId": "worktree-1",
+    "requirementIds": [
+      "demo:R1"
+    ],
+    "candidateOid": "2cdb359f28b3a064b2c82fd78a7778b9c239d065",
+    "baseOid": "2cdb359f28b3a064b2c82fd78a7778b9c239d065",
+    "mergeGroupId": null,
+    "sourceSnapshotDigest": "sha256:b2ddd89666e6a5a92a84fdcb1fc956fa337dce0f0f6ee8b0d8db318f4c5b9971",
+    "baselineDigest": null
+  },
+  "runStatus": "completed",
+  "decision": "ALLOW",
+  "coverage": {
+    "status": "complete",
+    "requiredScopes": [
+      "profile:specguard.structural/v1",
+      "requirement:demo:R1",
+      "source:specs/a.md"
+    ],
+    "observedScopes": [
+      "profile:specguard.structural/v1",
+      "requirement:demo:R1",
+      "source:specs/a.md"
+    ],
+    "missingScopes": []
+  },
+  "artifacts": {
+    "contract": {
+      "uri": "artifact://specguard/0148b96c918a54ca6c26c52b5126285061c366cdb580506e8dc9d6a4c3c2aca0/contract.json",
+      "digest": "sha256:7e8c18995f25c3a4a9246498c743a5ad49183f5c9442920e57c5532121bd7479",
+      "mediaType": "application/json"
+    },
+    "facts": {
+      "uri": "artifact://specguard/0148b96c918a54ca6c26c52b5126285061c366cdb580506e8dc9d6a4c3c2aca0/facts.json",
+      "digest": "sha256:3e1b3cf829f18cab570356090e32a6cf2cd56f7c609c6e10caadb1968ac803f8",
+      "mediaType": "application/json"
+    },
+    "report": {
+      "uri": "artifact://specguard/0148b96c918a54ca6c26c52b5126285061c366cdb580506e8dc9d6a4c3c2aca0/report.json",
+      "digest": "sha256:4bc507ca180f7083d5776a767b82e123e2c4728a0b66d84c9175468f2cd6527f",
+      "mediaType": "application/json"
+    },
+    "domain": [
+      {
+        "uri": "artifact://specguard/0148b96c918a54ca6c26c52b5126285061c366cdb580506e8dc9d6a4c3c2aca0/domain.json",
+        "digest": "sha256:6c3cea69333ccf696fb3071273e76830409e428c7b831236c63a63d5f55116e5",
+        "mediaType": "application/json"
+      }
+    ]
+  },
+  "approvalRefs": [],
+  "diagnostics": [],
+  "startedAt": "2026-10-09T10:00:00Z",
+  "finishedAt": "2026-10-09T10:00:01Z",
+  "expiresAt": null
+}

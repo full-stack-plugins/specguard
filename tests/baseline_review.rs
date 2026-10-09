@@ -24,11 +24,20 @@ fn review_policy_and_baseline_are_frozen_before_execution_and_verification_recom
     let (mut review, invocation) = inputs(root.path(), &s);
     let required = BTreeSet::from([key("R1")]);
     let policy = producer_support::policy();
-    let prepared =
-        prepare_baseline_review(root.path(), &s, invocation, &required, &policy, &review).unwrap();
+    let prepared = prepare_baseline_review(
+        root.path(),
+        &s,
+        serde_json::from_value(serde_json::to_value(&invocation).unwrap()).unwrap(),
+        &required,
+        &policy,
+        &review,
+    )
+    .unwrap();
     let original = prepared.work_key().clone();
     review.contract.metadata.revision = "new-policy".into();
-    let (_, invocation) = inputs(root.path(), &s);
+    // Reuse the same frozen baseline; a second helper call creates another Git
+    // commit and can change the baseline digest across a wall-clock second.
+
     let changed =
         prepare_baseline_review(root.path(), &s, invocation, &required, &policy, &review).unwrap();
     assert_ne!(original, *changed.work_key());

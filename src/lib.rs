@@ -12,3 +12,5 @@ pub mod trace;
 pub mod architecture;
 
 pub mod cli;
+
+pub mod cache;

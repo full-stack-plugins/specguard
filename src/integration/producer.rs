@@ -495,7 +495,23 @@ impl PreparedRun {
         self,
         finished_at: &str,
         cancellation: &super::runtime::CancellationToken,
+        observe: impl FnMut(&crate::model::SourceStatus),
+    ) -> Result<ProducedRun, TransportDiagnostic> {
+        self.execute_with_cache(
+            finished_at,
+            cancellation,
+            observe,
+            &mut crate::cache::ParseCache::disabled(),
+        )
+    }
+    /// Only derived parse results may be reused. Preparation, projection, GE
+    /// evaluation and bound runtime verification still execute for every run.
+    pub fn execute_with_cache(
+        self,
+        finished_at: &str,
+        cancellation: &super::runtime::CancellationToken,
         mut observe: impl FnMut(&crate::model::SourceStatus),
+        cache: &mut crate::cache::ParseCache,
     ) -> Result<ProducedRun, TransportDiagnostic> {
         let recovery = self.recovery.clone();
         let mut history = super::runtime::History::default();
@@ -519,8 +535,9 @@ impl PreparedRun {
                 history,
             );
         }
+        let mut pending = None;
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            self.complete_inner(finished_at, |source| {
+            self.complete_inner(finished_at, cache, &mut pending, |source| {
                 if cancellation.is_cancelled() {
                     return Err(());
                 }
@@ -535,24 +552,43 @@ impl PreparedRun {
                 }
             })
         }));
-        super::runtime::finalize(result, &recovery, cancellation, finished_at, history)
+        let output =
+            super::runtime::finalize(result, &recovery, cancellation, finished_at, history)?;
+        if output.envelope.run_status == RunStatus::Completed
+            && output.envelope.coverage.status == CoverageStatus::Complete
+            && let Some(entry) = pending
+        {
+            cache.commit(entry);
+        }
+        Ok(output)
     }
     fn complete_inner(
         self,
         finished_at: &str,
+        cache: &mut crate::cache::ParseCache,
+        pending: &mut Option<crate::cache::Pending>,
         mut control: impl FnMut(Option<&crate::model::SourceStatus>) -> Result<(), ()>,
     ) -> Result<ProducedRun, TransportDiagnostic> {
         if parser_preflight(&self.snapshot).is_err() {
             return self.terminal(RunStatus::Error, "parser.budget", finished_at);
         }
-        let parsed = match parse_controlled(&self.snapshot, &mut control) {
-            Ok(parsed) => parsed,
+        let (parsed, hit) = match cache.get(self.work_key.digest(), &self.snapshot, &mut control) {
+            Ok(Some(parsed)) => (parsed, true),
+            Ok(None) => match parse_controlled(&self.snapshot, &mut control) {
+                Ok(parsed) => (parsed, false),
+                Err(()) => {
+                    return self.terminal(RunStatus::Cancelled, "execution.cancelled", finished_at);
+                }
+            },
             Err(()) => {
                 return self.terminal(RunStatus::Cancelled, "execution.cancelled", finished_at);
             }
         };
         if control(None).is_err() {
             return self.terminal(RunStatus::Cancelled, "execution.cancelled", finished_at);
+        }
+        if !hit {
+            *pending = cache.stage(self.work_key.digest(), &self.snapshot, &parsed);
         }
         let graph = build_graph(parsed);
         if graph

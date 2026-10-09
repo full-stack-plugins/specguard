@@ -279,3 +279,32 @@ fn even_self_consistent_domain_bytes_must_match_real_committed_source() {
         .is_err()
     );
 }
+
+#[test]
+fn actual_git_preparation_is_not_skipped_by_cached_parsing() {
+    let (root, base, head) = fixture("sha1");
+    let repo = Repository::discover(root.path(), "repo").unwrap();
+    let policy = policy();
+    let candidate = candidate(&repo, &base, &head, &policy);
+    let mut cache = specguard::cache::ParseCache::enabled();
+    for run in ["cold", "warm"] {
+        let mut a = attempt();
+        a.run_id = run.into();
+        let p = GitPreparedRun::prepare(&repo, &candidate, &policy, a).unwrap();
+        let expected = p.binding().clone();
+        let out = p
+            .execute_with_cache(
+                "2026-10-09T10:00:01Z",
+                &CancellationToken::new(),
+                &mut cache,
+            )
+            .unwrap();
+        assert_eq!(out.output().envelope.run_id, run);
+        out.verify(&repo, &candidate, &policy, &expected).unwrap();
+    }
+    assert_eq!(cache.stats().hits, 1);
+    let mut forged = serde_json::to_value(&candidate).unwrap();
+    forged["source_snapshot_digest"] = "f".repeat(64).into();
+    let forged: CandidateSnapshot = serde_json::from_value(forged).unwrap();
+    assert!(GitPreparedRun::prepare(&repo, &forged, &policy, attempt()).is_err());
+}

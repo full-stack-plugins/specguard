@@ -206,9 +206,17 @@ impl GitPreparedRun {
         finished: &str,
         token: &CancellationToken,
     ) -> Result<GitEvidenceBundle, String> {
+        self.execute_with_cache(finished, token, &mut crate::cache::ParseCache::disabled())
+    }
+    pub fn execute_with_cache(
+        self,
+        finished: &str,
+        token: &CancellationToken,
+        cache: &mut crate::cache::ParseCache,
+    ) -> Result<GitEvidenceBundle, String> {
         let output = self
             .prepared
-            .execute(finished, token, |_| {})
+            .execute_with_cache(finished, token, |_| {}, cache)
             .map_err(|e| format!("{}: {}", e.code, e.message))?;
         Ok(GitEvidenceBundle {
             api_version: VERSION.into(),

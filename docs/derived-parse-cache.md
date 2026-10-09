@@ -1,0 +1,15 @@
+# Optional derived parse cache
+
+`ParseCache` is a disabled-by-default, process-local FIFO cache. Controllers opt in with `ParseCache::enabled()` and pass it to `PreparedRun::execute_with_cache` or `GitPreparedRun::execute_with_cache`. Existing `execute` calls remain uncached. The cache has no persistence, deserialization, public insertion, envelope, approval, or eligibility entries.
+
+Only complete native parser results are eligible. The private work digest covers actual frozen source bytes and inventory, all source limits, candidate/base binding, required scope, protected mapping/policy, baseline digest, producer/coverage, and profile. Cache and parser versions must also match. Unknown versions or any input drift cause a miss; unsupported, partial, limited, empty, or failed parsing cannot populate the cache. Run IDs and timestamps are excluded so a retry can reuse derivation while producing its own fresh bound envelope and artifacts.
+
+Every invocation still performs preparation and borrowed input admission. Git preparation validates actual candidate objects and source bytes. Cached parsing does not skip graph construction, findings, protected mapping, GE evaluation, artifact verification, or runtime finalization. Approval validation remains a separate fresh controller responsibility; the advisory producer does not authenticate a baseline on either cold or warm execution. A cache hit cannot confer production authority.
+
+The default ceilings are eight entries and an 8 MiB conservative retained-entry charge. Controllers may lower them. A counting serializer admits each result before cloning, charging twice its encoded length plus per-row overhead and a fixed margin. This is a conservative entry accounting policy, not a measured RSS or total-process memory limit. Oversized entries are bypassed; FIFO eviction enforces count and aggregate charge. Temporary output and parser budgets continue to apply independently.
+
+A cold result is staged and committed only after successful verified finalization with complete coverage. Later failure, invalid finish, panic, or cancellation drops the staged entry. Warm execution replays parser source checkpoints and diagnostics, allowing cancellation during a real worker run without deleting a previously successful entry. No cancellation is interpreted as completion.
+
+Time limits are part of the exact key. A warm hit reuses a derivation that previously completed under those same limits; it does not claim equal elapsed time or replay CPU work. A limited cold result never becomes a warm complete result, and lowering the time limit misses. Limits remain cooperative, not OS deadlines.
+
+Tests: `tests/cache_parity.rs` covers disabled/cold/warm byte equality, fresh retry envelopes, frozen-key drift, incomplete/time-limited bypass, capacities, current approval checks, invalid finalization, panic, and worker cancellation. `tests/queue_binding.rs` verifies real Git preparation and source verification on both cold and warm runs. The cache type cannot be deserialized; internal version mismatch tests cover unknown versions. Task 4.3 remains pending independent review.

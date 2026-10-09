@@ -72,6 +72,6 @@ specguard check ROOT REQUEST.json [--cancel]
 
 ## OpenSpec 实施待办
 
-新增增量 [proposal](openspec/changes/add-specification-baseline-analysis/proposal.md)、[design](openspec/changes/add-specification-baseline-analysis/design.md)、[规范](openspec/changes/add-specification-baseline-analysis/specs/) 与 [tasks](openspec/changes/add-specification-baseline-analysis/tasks.md)，将架构方案拆成待实施工作。参阅[跨仓依赖路线图](openspec/guard-roadmap.md)与[结构验证记录](openspec/validation-2026-10-09.md)。任务在独立审查后逐项登记，当前检查点为17/30。新交接和 CLI 切片审查前不勾选，未完整实现的能力仍标 partial。历史源码清单和验证记录继续保留为历史证据，不再作为当前能力说明。
+新增增量 [proposal](openspec/changes/add-specification-baseline-analysis/proposal.md)、[design](openspec/changes/add-specification-baseline-analysis/design.md)、[规范](openspec/changes/add-specification-baseline-analysis/specs/) 与 [tasks](openspec/changes/add-specification-baseline-analysis/tasks.md)，将架构方案拆成待实施工作。参阅[跨仓依赖路线图](openspec/guard-roadmap.md)与[结构验证记录](openspec/validation-2026-10-09.md)。任务在独立审查后逐项登记，当前检查点为18/30。新交接和 CLI 切片审查前不勾选，未完整实现的能力仍标 partial。历史源码清单和验证记录继续保留为历史证据，不再作为当前能力说明。
 
 本地 Git SDK 见[精确提交来源绑定](docs/git-source-binding.md)。当前工作区明确要求 Rust1.90，并依赖已审查的 Unix GitGuard；已实际运行 Rust1.90 库/Git 路径测试。现有 CLI 仍为本地 advisory profile。

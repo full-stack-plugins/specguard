@@ -50,5 +50,5 @@ ledger `codeguard-native-parity-independent-review.md`: 23 original captures,
 old/new provenance and platform limits. That retained evidence is not presented
 as a new native rerun here.
 
-`tests/rollout_rollback.rs` executes this same composition. Task 4.7 stays
-unchecked until independent acceptance.
+`tests/rollout_rollback.rs` executes this same composition. Task 4.7 is independently accepted at `367cc4b` for these local conditions;
+see ledger `specguard-rollout-independent-review.md`.

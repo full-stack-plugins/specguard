@@ -31,3 +31,8 @@ D['ObligationSet'] = obj(apiVersion=V,kind={'const':'TestObligationSet'},baselin
 for name, type_name in [('baseline','ApprovedBaseline'),('obligations','ObligationSet'),('parse-result','ParseResult'),('inventory','SourceInventory'),('snapshot','SourceSnapshot')]:
     value={'$schema':'https://json-schema.org/draft/2020-12/schema','$id':f'https://specguard.invalid/schema/domain/v1alpha1/{name}.json',**D[type_name],'$defs':D}
     (out/f'{name}.json').write_text(json.dumps(value,indent=2)+'\n')
+# Independent native identity-registry schema; existing domain objects remain unchanged.
+scenario = obj(title=S,id=S)
+requirement = obj(title=S,id=S,scenarios=arr(scenario))
+registry = obj(apiVersion={'const':'specguard.openspec-ids/v1'},documents=arr(obj(path=S,requirements=arr(requirement))))
+(out/'openspec-identities.json').write_text(json.dumps({'$schema':'https://json-schema.org/draft/2020-12/schema',**registry},indent=2)+'\n')

@@ -1,3 +1,4 @@
+mod openspec;
 use crate::{model::*, source::SourceSnapshot};
 use serde::Deserialize;
 #[derive(Deserialize)]
@@ -46,6 +47,7 @@ pub fn parse(snapshot: &SourceSnapshot) -> ParseResult {
         return result;
     }
     let start = std::time::Instant::now();
+    let native_registry = openspec::load_registry(snapshot, start);
     for entry in &snapshot.inventory.entries {
         let parsed = (|| -> ParsedSource {
             let bytes = snapshot
@@ -63,6 +65,19 @@ pub fn parse(snapshot: &SourceSnapshot) -> ParseResult {
                 || start.elapsed().as_millis() >= limits.max_millis as u128
             {
                 return Err((Terminal::Limit, "parse budget exceeded".into()));
+            }
+            if entry.format == "openspec-identities/v1" {
+                native_registry.as_ref().map_err(Clone::clone)?;
+                return Ok((vec![], vec![], vec![]));
+            }
+            if entry.format.starts_with("openspec/1.14.1-") {
+                return openspec::parse_native(
+                    entry,
+                    text,
+                    native_registry.as_ref().map_err(Clone::clone)?,
+                    limits,
+                    start,
+                );
             }
             let mut lines = text.lines().enumerate();
             if lines.next().map(|(_, s)| s) != Some("---") {

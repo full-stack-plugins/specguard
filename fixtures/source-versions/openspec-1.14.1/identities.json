@@ -1,0 +1,14 @@
+{
+  "apiVersion": "specguard.openspec-ids/v1",
+  "documents": [{
+    "path": "specs/a.md",
+    "requirements": [{
+      "title": "Password authentication",
+      "id": "R1",
+      "scenarios": [
+        {"title": "Correct password", "id": "A1"},
+        {"title": "Incorrect password", "id": "A2"}
+      ]
+    }]
+  }]
+}

@@ -33,3 +33,16 @@ Actual TestGuard local-fixture consumer evidence received and independently reru
 ## Independent review acceptance
 
 Local full task acceptance: 1.1, 1.2, 1.6, 1.7, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6. Review findings were fixed with RED/GREEN regressions and independently rechecked; see cloud execution ledger specguard-review.md. Scope remains local and advisory/fixture-labelled where stated. Production authority, remaining capability gaps and hosted gates are not claimed.
+
+## Native OpenSpec slice plan (base 2759b3b)
+
+Task 1.4: add parser dispatch for actual installed OpenSpec 1.14.1 main specs and ADDED-only delta specs, with Markdown AST parsing and explicit per-source incomplete diagnostics. Keep the old explicit-ID parser and existing domain wire payload unchanged. Verify native fixture files with the installed official Validator/MarkdownParser, then test real discovery → frozen registry+documents → parsing, stable IDs, fence/nesting limits, malformed/missing identity coverage and unknown/native delta operations. Record official version and commands, local RED/GREEN, full Rust regression and TG export compatibility.
+
+Ruling: natural-language native headings are lookup locators, not persistent IDs — native source IDs come from an explicit specguard.openspec-ids/v1 registry discovered and digested alongside documents; without complete unique mappings native parsing is incomplete. This preserves the stable-ID requirement without editing native source format. Cost if wrong: registry/profile migration, not hidden title-derived identity merges.
+
+Pre-flight 1.4→1.5/2.6: unchanged Requirement/Acceptance/TraceEdge/ParseResult/ObligationSet shapes keep existing consumers and old fixture digests compatible. New source profile names are opt-in. 1.5 ADR/task target schema work and 3.1/3.2 GE adapter work remain subsequent slices, not silently advertised. 1.3 filesystem atomicity remains an explicit gap.
+
+Ruling: official main-spec and ADDED-delta capability support is pinned to installed @fission-ai/openspec 1.14.1; MODIFIED/REMOVED/RENAMED deltas require baseline-aware application and will report Unsupported, not be treated as additions. No full-tool/N-1 compatibility claim.
+
+
+Native slice outcome (review pending): 42 Rust tests pass (9 native tests), strict Clippy/schema checks pass, and official @fission-ai/openspec 1.14.1 strict validation passes main/ADDED fixtures plus BOM/CRLF/closed-heading/fenced-example parity. Native identity registry schema is separate; all existing domain DTOs, handoff golden bytes and fixture-only authentication behavior are unchanged. Two additional RED→GREEN regressions enforce normalized lone-CR line limits and fail closed on unsupported HTML structures. Task 1.4 native capability evidence is ready for independent review; task checkboxes unchanged. Main/ADDED-only support is explicit, not full delta-application support. The rulings above and remaining 1.3/1.5/GE work stand.

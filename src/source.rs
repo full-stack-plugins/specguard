@@ -69,7 +69,14 @@ pub struct SourceSnapshot {
     pub digest: String,
 }
 fn supported(format: &str) -> bool {
-    matches!(format, "markdown-explicit/v1" | "openspec-explicit/v1")
+    matches!(
+        format,
+        "markdown-explicit/v1"
+            | "openspec-explicit/v1"
+            | "openspec/1.14.1-main"
+            | "openspec/1.14.1-added"
+            | "openspec-identities/v1"
+    )
 }
 fn safe(root: &Path, relative: &str) -> Result<std::path::PathBuf, String> {
     use std::path::Component;

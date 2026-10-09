@@ -1,0 +1,36 @@
+{
+  "package": "@fission-ai/openspec",
+  "version": "1.14.1",
+  "mainReport": {
+    "valid": true,
+    "issues": [],
+    "summary": {
+      "errors": 0,
+      "warnings": 0,
+      "info": 0
+    }
+  },
+  "changeReport": {
+    "valid": true,
+    "issues": [],
+    "summary": {
+      "errors": 0,
+      "warnings": 0,
+      "info": 0
+    }
+  },
+  "requirement": {
+    "name": "Password authentication",
+    "text": "The application SHALL create a session only after the supplied password matches the stored credential.",
+    "scenarios": [
+      {
+        "name": "Correct password",
+        "rawText": "- **WHEN** a user supplies the correct password\n- **THEN** the application creates an authenticated session"
+      },
+      {
+        "name": "Incorrect password",
+        "rawText": "- **WHEN** a user supplies an incorrect password\n- **THEN** the application rejects the login without creating a session"
+      }
+    ]
+  }
+}

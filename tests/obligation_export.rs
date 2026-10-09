@@ -39,3 +39,23 @@ fn removing_frozen_acceptance_cannot_shrink_the_plan() {
             .complete
     );
 }
+
+#[test]
+fn changed_text_cannot_replace_frozen_acceptance_in_complete_plan() {
+    let b = baseline();
+    let verified = authenticate(&b, &fixture_approval(&b), Profile::Fixture, 50).unwrap();
+    let original = export_obligations(&b.graph, &verified, &b.scope, &b.source_digest).unwrap();
+    let mut candidate = b.graph.clone();
+    candidate.parsed.acceptances[0].text = "Any password opens a session.".into();
+    let changed = export_obligations(&candidate, &verified, &b.scope, &b.source_digest).unwrap();
+    assert!(
+        !changed.complete,
+        "same stable ID cannot approve changed acceptance text"
+    );
+    assert_eq!(changed.baseline_digest, original.baseline_digest);
+    assert_eq!(
+        verified.record(),
+        &b,
+        "export must not rewrite the approved baseline"
+    );
+}

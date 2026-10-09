@@ -57,3 +57,28 @@ fn duplicate_acceptances_make_comparison_incomplete() {
     g.parsed.acceptances.push(g.parsed.acceptances[0].clone());
     assert!(!compare_baseline(&b, &g, &BTreeMap::new()).unwrap().complete);
 }
+
+#[test]
+fn migration_rejects_retained_old_identity_in_candidate() {
+    let b = baseline();
+    let mut candidate = b.graph.clone();
+    let mut migrated = candidate.parsed.requirements[0].clone();
+    migrated.key = key("R2");
+    candidate.parsed.requirements.push(migrated);
+    candidate.parsed.requirements[0].text = "Changed retained R1".into();
+    let mappings = BTreeMap::from([(key("R1"), key("R2"))]);
+    assert!(compare_baseline(&b, &candidate, &mappings).is_err());
+    let unmapped = compare_baseline(&b, &candidate, &BTreeMap::new()).unwrap();
+    assert!(
+        unmapped
+            .changes
+            .iter()
+            .any(|c| c.key == key("R1") && c.kind == ChangeKind::TextReview)
+    );
+    assert!(
+        unmapped
+            .changes
+            .iter()
+            .any(|c| c.key == key("R2") && c.kind == ChangeKind::Added)
+    );
+}

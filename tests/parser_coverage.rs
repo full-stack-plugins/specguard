@@ -1,6 +1,6 @@
 mod common;
 use common::*;
-use specguard::{model::*, parser::*};
+use specguard::{model::*, parser::*, source::*};
 #[test]
 fn explicit_ids_and_acceptance_locations() {
     let (_, s) = snapshot(document().as_bytes());
@@ -25,8 +25,10 @@ fn malformed_unknown_non_utf8_and_budget_are_incomplete() {
                 .any(|s| s.status != Terminal::Complete)
         );
     }
-    let (_, mut s) = snapshot(document().as_bytes());
-    s.inventory.limits.max_lines = 1;
+    let (d, s) = snapshot(document().as_bytes());
+    let mut inventory = s.inventory;
+    inventory.limits.max_lines = 1;
+    let s = freeze(d.path(), &inventory, s.binding).unwrap();
     assert!(
         parse(&s)
             .sources
@@ -36,14 +38,17 @@ fn malformed_unknown_non_utf8_and_budget_are_incomplete() {
 }
 #[test]
 fn openspec_profile_and_commands_are_only_data() {
-    let (d, mut s) = snapshot(
-        document()
-            .replace("markdown-explicit/v1", "openspec-explicit/v1")
-            .replace("## Requirement:", "### Requirement:")
-            .replace("### Acceptance:", "#### Scenario:")
-            .as_bytes(),
-    );
-    s.inventory.entries[0].format = "openspec-explicit/v1".into();
+    let d = repo();
+    std::fs::create_dir(d.path().join("specs")).unwrap();
+    std::fs::write(
+        d.path().join("specs/a.md"),
+        include_str!("../fixtures/source-versions/openspec-explicit-v1.md"),
+    )
+    .unwrap();
+    let mut config = policy();
+    config.roots[0].format = "openspec-explicit/v1".into();
+    let inventory = discover(d.path(), &config).unwrap();
+    let s = freeze(d.path(), &inventory, binding(d.path())).unwrap();
     let p = parse(&s);
     assert_eq!(p.requirements.len(), 1);
     assert_eq!(p.acceptances.len(), 1);

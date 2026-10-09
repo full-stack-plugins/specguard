@@ -20,3 +20,12 @@ Local Rust library and fixtures implemented, 28 tests pass; strict Clippy and sc
 Local acceptance implemented pending review: 1.1, 1.2, 1.6, 1.7 (supported dependency domain), 2.1, 2.2 (explicit fixture port), 2.3, 2.4, 2.5, 2.6. Partial tasks: 1.3 lacks OS-atomic hostile-mutation protection; 1.4 uses an explicit-ID line grammar rather than full Markdown AST/native upstream OpenSpec; 1.5 reserves ADR/task tags but rejects their analysis as incomplete; 2.7 has golden producer/local simulation, actual consumer verification being coordinated with TestGuard. All production approval use remains unavailable.
 
 Brief pause for parent scope synchronization was followed by explicit instruction to continue implementation; no work was discarded. No engine integration or release claims are made.
+
+
+## Independent-review corrections
+
+The independent review accepted local tasks 1.1, 1.2, 1.7, 2.1, 2.2 and 2.5, with checkboxes still deferred. Root accepted the reversible same-unit i64 min/max contract for 2.4; supported units are explicitly count/ms/s/bytes, all unknown units and free-text comparisons require review.
+
+Regression fixes: changed same-ID acceptance text makes export incomplete; parsing verifies the aggregate snapshot digest before interpreting bytes; mappings reject a source ID retained in the candidate. Each regression failed before its fix. Parser fixtures now use a correctly frozen policy/profile; exercising the existing OpenSpec fixture also fixed optional ADDED Requirements section handling. Full suite: 33 passing tests; strict Clippy and schema checks pass. No new source-format/atomicity implementation claimed in this correction slice.
+
+Actual TestGuard local-fixture consumer evidence received and independently rerun: repository head fe85e3d96759e323da8cd5f94afc3a29bdd6d661; cargo test --locked --offline --test specguard_fixture, 2 passing tests. This consumes the exact exported golden fixture, retains source metadata, freezes explicit case/environment mappings, and rejects partial/production/unknown-version/field/missing-scope/candidate-drift inputs. Production authentication and ArchGuard native consumption are still unverified.

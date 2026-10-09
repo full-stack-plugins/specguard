@@ -125,7 +125,11 @@ pub fn compare_baseline(
     let newkeys: BTreeSet<_> = new.requirements.iter().map(|r| r.key.clone()).collect();
     // Reviewed mappings still must name real old/new identities and cannot displace an existing one.
     for (a, z) in mappings {
-        if !oldkeys.contains(a) || !newkeys.contains(z) || (oldkeys.contains(z) && a != z) {
+        if !oldkeys.contains(a)
+            || !newkeys.contains(z)
+            || (oldkeys.contains(z) && a != z)
+            || (newkeys.contains(a) && a != z)
+        {
             return Err("mapping does not describe a unique old/new identity".into());
         }
     }
@@ -243,17 +247,15 @@ pub fn compare_baseline(
 }
 pub fn compare_condition(before: &Condition, after: &Condition) -> Comparison {
     use Condition::*;
-    if before == after {
-        return Comparison::Equal;
-    }
+    let supported_unit = |unit: &str| matches!(unit, "count" | "ms" | "s" | "bytes");
     let order = match (before, after) {
         (IntegerMinimum { value: a, unit: u }, IntegerMinimum { value: b, unit: v })
-            if u == v && !u.is_empty() =>
+            if u == v && supported_unit(u) =>
         {
             b.cmp(a)
         }
         (IntegerMaximum { value: a, unit: u }, IntegerMaximum { value: b, unit: v })
-            if u == v && !u.is_empty() =>
+            if u == v && supported_unit(u) =>
         {
             a.cmp(b)
         }

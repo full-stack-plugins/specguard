@@ -42,19 +42,21 @@ pub fn export_obligations(
     if scope.is_empty() || !scope.is_subset(&b.scope) {
         return Err("scope is not covered by approved baseline".into());
     }
-    let frozen_acceptances_present =
-        b.graph
-            .parsed
-            .acceptances
-            .iter()
-            .filter(|a| scope.contains(&a.requirement))
-            .all(|a| {
-                graph.parsed.acceptances.iter().any(|candidate| {
-                    candidate.key == a.key && candidate.requirement == a.requirement
-                })
-            });
+    let frozen_acceptances_unchanged = b
+        .graph
+        .parsed
+        .acceptances
+        .iter()
+        .filter(|a| scope.contains(&a.requirement))
+        .all(|a| {
+            graph.parsed.acceptances.iter().any(|candidate| {
+                candidate.key == a.key
+                    && candidate.requirement == a.requirement
+                    && candidate.text == a.text
+            })
+        });
     let complete = graph.complete()
-        && frozen_acceptances_present
+        && frozen_acceptances_unchanged
         && crate::rules::validate_graph(graph, scope).is_empty();
     let mut obligations = vec![];
     for a in &graph.parsed.acceptances {

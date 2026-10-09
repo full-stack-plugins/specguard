@@ -30,3 +30,39 @@ fn only_same_typed_unit_can_be_ordered() {
         Comparison::Review
     );
 }
+
+#[test]
+fn unsupported_units_and_free_text_always_require_review() {
+    for (before, after) in [
+        (
+            Condition::IntegerMinimum {
+                value: 2,
+                unit: "unreviewed-unit".into(),
+            },
+            Condition::IntegerMinimum {
+                value: 3,
+                unit: "unreviewed-unit".into(),
+            },
+        ),
+        (
+            Condition::IntegerMaximum {
+                value: 2,
+                unit: "unreviewed-unit".into(),
+            },
+            Condition::IntegerMaximum {
+                value: 2,
+                unit: "unreviewed-unit".into(),
+            },
+        ),
+        (
+            Condition::Text {
+                text: "fast".into(),
+            },
+            Condition::Text {
+                text: "fast".into(),
+            },
+        ),
+    ] {
+        assert_eq!(compare_condition(&before, &after), Comparison::Review);
+    }
+}

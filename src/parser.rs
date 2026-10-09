@@ -17,6 +17,34 @@ pub fn parse(snapshot: &SourceSnapshot) -> ParseResult {
         acceptances: vec![],
         edges: vec![],
     };
+    let actual_digest = digest(&(&snapshot.inventory, &snapshot.binding, &snapshot.contents));
+    if actual_digest != snapshot.digest {
+        let mut paths: std::collections::BTreeSet<_> = snapshot
+            .inventory
+            .sources
+            .iter()
+            .map(|source| source.path.clone())
+            .chain(
+                snapshot
+                    .inventory
+                    .entries
+                    .iter()
+                    .map(|entry| entry.path.clone()),
+            )
+            .collect();
+        if paths.is_empty() {
+            paths.insert("<snapshot>".into());
+        }
+        result.sources = paths
+            .into_iter()
+            .map(|path| SourceStatus {
+                path,
+                status: Terminal::Malformed,
+                reason: "aggregate snapshot digest mismatch".into(),
+            })
+            .collect();
+        return result;
+    }
     let start = std::time::Instant::now();
     for entry in &snapshot.inventory.entries {
         let parsed = (|| -> ParsedSource {
@@ -115,7 +143,9 @@ pub fn parse(snapshot: &SourceSnapshot) -> ParseResult {
                         relation: Relation::DependsOn,
                         source,
                     });
-                } else if line.starts_with('#') && line != "## ADDED Requirements" {
+                } else if line == "## ADDED Requirements" {
+                    continue;
+                } else if line.starts_with('#') {
                     return Err((Terminal::Malformed, "unsupported heading".into()));
                 } else if active_acceptance {
                     let a = accs.last_mut().unwrap();

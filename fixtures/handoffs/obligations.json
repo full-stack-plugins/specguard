@@ -1,0 +1,41 @@
+{
+  "apiVersion": "specguard.domain/v1alpha1",
+  "kind": "TestObligationSet",
+  "baselineDigest": "sha256:82b804c9a61cb334cdc1504decf4bdfde09dd35a7fd795627d79c48940369e91",
+  "sourceDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "candidateOid": "2222222222222222222222222222222222222222",
+  "scope": [
+    {
+      "namespace": "demo",
+      "id": "R1"
+    }
+  ],
+  "sources": [
+    {
+      "path": "specs/a.md",
+      "status": "complete",
+      "reason": "parsed"
+    }
+  ],
+  "complete": true,
+  "authenticationProfile": "fixture-only",
+  "obligations": [
+    {
+      "id": "obligation:sha256:e297dc9327c15def0f2a0358aae2910d862cab63c0b3527566f7cc2cb080026a",
+      "requirement": {
+        "namespace": "demo",
+        "id": "R1"
+      },
+      "acceptance": {
+        "namespace": "demo",
+        "id": "A1"
+      },
+      "source": {
+        "path": "specs/a.md",
+        "line": 7
+      },
+      "textDigest": "sha256:efdd2df596125593aa3e04516a5b2d4f5a7178b7da8d5c4ae1129b8bc02ebc89",
+      "links": []
+    }
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "apiVersion": "specguard.domain/v1alpha1",
+  "repository": "fixture-repo",
+  "scope": [
+    {
+      "namespace": "demo",
+      "id": "R1"
+    }
+  ],
+  "sourceRevision": "2222222222222222222222222222222222222222",
+  "sourceDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "graphDigest": "sha256:0ac8dd48c6029297ba1e18257d95364cbea9c379853e7e52ba4be7cae7a7b7a8",
+  "policyDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "approvalRef": "fixture:approval-1",
+  "effectiveFrom": 10,
+  "expiresAt": 100,
+  "state": "approved",
+  "graph": {
+    "parsed": {
+      "apiVersion": "specguard.domain/v1alpha1",
+      "snapshotDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "candidateOid": "2222222222222222222222222222222222222222",
+      "sources": [
+        {
+          "path": "specs/a.md",
+          "status": "complete",
+          "reason": "parsed"
+        }
+      ],
+      "requirements": [
+        {
+          "key": {
+            "namespace": "demo",
+            "id": "R1"
+          },
+          "text": "A user can sign in.",
+          "source": {
+            "path": "specs/a.md",
+            "line": 5
+          }
+        }
+      ],
+      "acceptances": [
+        {
+          "key": {
+            "namespace": "demo",
+            "id": "A1"
+          },
+          "requirement": {
+            "namespace": "demo",
+            "id": "R1"
+          },
+          "text": "A correct password opens a session.",
+          "source": {
+            "path": "specs/a.md",
+            "line": 7
+          }
+        }
+      ],
+      "edges": []
+    }
+  }
+}

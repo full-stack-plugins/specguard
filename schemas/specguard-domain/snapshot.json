@@ -1,0 +1,532 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://specguard.invalid/schema/domain/v1alpha1/snapshot.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "apiVersion",
+    "inventory",
+    "binding",
+    "contents",
+    "digest"
+  ],
+  "properties": {
+    "apiVersion": {
+      "const": "specguard.domain/v1alpha1"
+    },
+    "inventory": {
+      "$ref": "#/$defs/SourceInventory"
+    },
+    "binding": {
+      "$ref": "#/$defs/CandidateBinding"
+    },
+    "contents": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        }
+      }
+    },
+    "digest": {
+      "type": "string"
+    }
+  },
+  "$defs": {
+    "Identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "namespace",
+        "id"
+      ],
+      "properties": {
+        "namespace": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        }
+      }
+    },
+    "SourceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "line"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "SourceStatus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "status",
+        "reason"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "complete",
+            "unsupported",
+            "malformed",
+            "limit",
+            "io_error",
+            "conflict"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    },
+    "Requirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "text",
+        "source"
+      ],
+      "properties": {
+        "key": {
+          "$ref": "#/$defs/Identity"
+        },
+        "text": {
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/SourceRef"
+        }
+      }
+    },
+    "Acceptance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "requirement",
+        "text",
+        "source"
+      ],
+      "properties": {
+        "key": {
+          "$ref": "#/$defs/Identity"
+        },
+        "requirement": {
+          "$ref": "#/$defs/Identity"
+        },
+        "text": {
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/SourceRef"
+        }
+      }
+    },
+    "TraceEdge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "from",
+        "to",
+        "relation",
+        "source"
+      ],
+      "properties": {
+        "from": {
+          "$ref": "#/$defs/Identity"
+        },
+        "to": {
+          "$ref": "#/$defs/Identity"
+        },
+        "relation": {
+          "enum": [
+            "depends_on",
+            "traces_to_adr",
+            "traces_to_task"
+          ]
+        },
+        "source": {
+          "$ref": "#/$defs/SourceRef"
+        }
+      }
+    },
+    "ParseResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "apiVersion",
+        "snapshotDigest",
+        "candidateOid",
+        "sources",
+        "requirements",
+        "acceptances",
+        "edges"
+      ],
+      "properties": {
+        "apiVersion": {
+          "const": "specguard.domain/v1alpha1"
+        },
+        "snapshotDigest": {
+          "type": "string"
+        },
+        "candidateOid": {
+          "type": "string"
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SourceStatus"
+          }
+        },
+        "requirements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Requirement"
+          }
+        },
+        "acceptances": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Acceptance"
+          }
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TraceEdge"
+          }
+        }
+      }
+    },
+    "SpecificationGraph": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parsed"
+      ],
+      "properties": {
+        "parsed": {
+          "$ref": "#/$defs/ParseResult"
+        }
+      }
+    },
+    "Limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maxFiles",
+        "maxBytes",
+        "maxLines",
+        "maxDepth",
+        "maxMillis"
+      ],
+      "properties": {
+        "maxFiles": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxLines": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxDepth": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxMillis": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "SourceEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "format",
+        "namespace",
+        "digest"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "format": {
+          "type": "string"
+        },
+        "namespace": {
+          "type": "string"
+        },
+        "digest": {
+          "type": "string"
+        }
+      }
+    },
+    "SourceInventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "apiVersion",
+        "entries",
+        "sources",
+        "limits"
+      ],
+      "properties": {
+        "apiVersion": {
+          "const": "specguard.domain/v1alpha1"
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SourceEntry"
+          }
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SourceStatus"
+          }
+        },
+        "limits": {
+          "$ref": "#/$defs/Limits"
+        }
+      }
+    },
+    "CandidateBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidateOid",
+        "baseOid",
+        "objectFormat"
+      ],
+      "properties": {
+        "candidateOid": {
+          "type": "string"
+        },
+        "baseOid": {
+          "type": "string"
+        },
+        "objectFormat": {
+          "type": "string"
+        }
+      }
+    },
+    "SourceSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "apiVersion",
+        "inventory",
+        "binding",
+        "contents",
+        "digest"
+      ],
+      "properties": {
+        "apiVersion": {
+          "const": "specguard.domain/v1alpha1"
+        },
+        "inventory": {
+          "$ref": "#/$defs/SourceInventory"
+        },
+        "binding": {
+          "$ref": "#/$defs/CandidateBinding"
+        },
+        "contents": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 255
+            }
+          }
+        },
+        "digest": {
+          "type": "string"
+        }
+      }
+    },
+    "ApprovedBaseline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "apiVersion",
+        "repository",
+        "scope",
+        "sourceRevision",
+        "sourceDigest",
+        "graphDigest",
+        "policyDigest",
+        "approvalRef",
+        "effectiveFrom",
+        "expiresAt",
+        "state",
+        "graph"
+      ],
+      "properties": {
+        "apiVersion": {
+          "const": "specguard.domain/v1alpha1"
+        },
+        "repository": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Identity"
+          }
+        },
+        "sourceRevision": {
+          "type": "string"
+        },
+        "sourceDigest": {
+          "type": "string"
+        },
+        "graphDigest": {
+          "type": "string"
+        },
+        "policyDigest": {
+          "type": "string"
+        },
+        "approvalRef": {
+          "type": "string"
+        },
+        "effectiveFrom": {
+          "type": "integer"
+        },
+        "expiresAt": {
+          "type": "integer"
+        },
+        "state": {
+          "enum": [
+            "proposed",
+            "approved",
+            "superseded",
+            "expired",
+            "revoked"
+          ]
+        },
+        "graph": {
+          "$ref": "#/$defs/SpecificationGraph"
+        }
+      }
+    },
+    "TestObligation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "requirement",
+        "acceptance",
+        "source",
+        "textDigest",
+        "links"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "requirement": {
+          "$ref": "#/$defs/Identity"
+        },
+        "acceptance": {
+          "$ref": "#/$defs/Identity"
+        },
+        "source": {
+          "$ref": "#/$defs/SourceRef"
+        },
+        "textDigest": {
+          "type": "string"
+        },
+        "links": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TraceEdge"
+          }
+        }
+      }
+    },
+    "ObligationSet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "apiVersion",
+        "kind",
+        "baselineDigest",
+        "sourceDigest",
+        "candidateOid",
+        "scope",
+        "sources",
+        "complete",
+        "authenticationProfile",
+        "obligations"
+      ],
+      "properties": {
+        "apiVersion": {
+          "const": "specguard.domain/v1alpha1"
+        },
+        "kind": {
+          "const": "TestObligationSet"
+        },
+        "baselineDigest": {
+          "type": "string"
+        },
+        "sourceDigest": {
+          "type": "string"
+        },
+        "candidateOid": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Identity"
+          }
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SourceStatus"
+          }
+        },
+        "complete": {
+          "type": "boolean"
+        },
+        "authenticationProfile": {
+          "type": "string"
+        },
+        "obligations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TestObligation"
+          }
+        }
+      }
+    }
+  }
+}

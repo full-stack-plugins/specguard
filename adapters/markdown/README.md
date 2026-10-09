@@ -1,0 +1,5 @@
+# markdown-explicit/v1
+
+This narrow read-only profile requires YAML frontmatter containing exactly `format: markdown-explicit/v1` and `namespace: <stable namespace>`. IDs and namespaces use ASCII alphanumerics, dot, underscore or hyphen. Requirement headings are `## Requirement: ID`, acceptance headings are `### Acceptance: ID`. Acceptance belongs to the preceding requirement. Text following a heading is preserved (outer whitespace trimmed), including command-like text, and never executed. `- depends_on: namespace:ID` creates a directed requirement dependency. All other headings are unsupported. No general Markdown/CommonMark AST compatibility is claimed.
+
+Configured roots are explicitly selected by the caller; all files inside them are required sources, so put only specification documents there. Unsupported format, malformed YAML, unknown header field, non-UTF-8 and limits produce terminal incomplete source records. Production callers must protect the configuration independently of candidate contents.

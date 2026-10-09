@@ -1,0 +1,19 @@
+# Local domain implementation
+
+This repository now has a Rust library, not a CLI/MCP service or a production gate. `cargo test` runs local domain tests; `cargo clippy --all-targets -- -D warnings` checks linting. Cargo.lock pins dependencies. Python schema checks use the environment's jsonschema package: `python3 scripts/check-schemas.py`.
+
+Flow: `source::discover(root, policy)` → `source::freeze(root, inventory, candidate_binding)` → `parser::parse(snapshot)` → `graph::build_graph(parsed)`. Git candidate/base OIDs must name real commit objects in the supplied repository; SHA-1 and SHA-256 object formats are tested. Dirty bytes are independently included in the snapshot digest. This does not verify a clean queue candidate or provide merge authorization.
+
+`rules::validate_graph(graph, required_ids)` takes the caller's frozen required set. Incomplete sources become incomplete/tool-error findings, not confirmed missing nodes. Duplicate identities retain all source locations. ADR/task relation tags are reserved; their presence makes analysis incomplete until native target support exists. `graph::validate_mappings` rejects cycles/non-bijections; `baseline::compare_baseline` only accepts mappings naming real old/new identities. Free text changes produce review; only same-unit integer minimum/maximum conditions have a strength order. Reverse impact returns representative dependency paths, not test results.
+
+`integration::approval::authenticate` consumes an immutable baseline and a read-only port. Current `Profile::Fixture` deliberately permits explicit in-memory fixtures. `Profile::Production` always returns unavailable until GE-TRUST integration and provider review. A parsed approval label/boolean has no authorization meaning. Validated handles are local results of an authentication call, not transferable credentials; callers must reauthenticate at each handoff and never cache away revocation. External ports return unavailable separately from confirmed unauthorized responses.
+
+`obligations::export_obligations(graph, validated_baseline, scope, expected_snapshot_digest)` binds the candidate source digest, candidate OID and approved baseline digest. It cannot enlarge baseline scope, and missing approved acceptances makes the plan incomplete even if replacement acceptances exist. It exports stable identities and source information without inventing test success.
+
+## Local encoding and limits
+
+Domain API version is specguard.domain/v1alpha1. This is independent of GuardEngine APIs. SHA-256 hashes encode Serde compact JSON with declared struct field order, BTree collection order and explicitly sorted graph vectors. Byte source hashes encode the byte array as JSON; they are not raw-file sha256sum values. This encoding is only the local domain contract, not engine canonicalization. Schema JSON describes shapes; Rust additionally validates graph/digest/time bindings. Inputs must be normalized through build_graph before comparison/export.
+
+Default limits: 1,000 files, 1 MiB per file, 10,000 lines per file, depth 16, 5,000 ms discovery/parser budget. Directory enumeration, file reads, headings, visited graph nodes and basic time checks are bounded. Tests exercise exhaustion; no throughput/SLA claim. The parser is a narrow explicit-ID line grammar, not a complete Markdown AST. Advisory time checks are not hard process deadlines.
+
+Symlinks present during path checks are rejected and two reads detect observed source drift. This is not an OS-backed atomic repository snapshot: adversarial path replacement between checks remains a security-hardening gap. Run against an immutable isolated checkout before authoritative use. File additions outside the frozen inventory are outside that snapshot scope. No document command, network request or arbitrary policy is executed. No persistent cache exists.

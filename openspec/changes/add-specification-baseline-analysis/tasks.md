@@ -31,24 +31,24 @@
 
 **Interfaces:** `discover(root, sourcePolicy) -> SourceInventory`；`freeze(inventory, candidateBinding) -> SourceSnapshot`；`parse(snapshot, adapterProfile) -> ParseResult`；`build_graph(parseResult) -> SpecificationGraph`。类型归未来 `src/model.rs`，错误/覆盖不丢失。组 1 可独立于 GE 开始。
 
-- [ ] 1.1 在 `src/model.rs`、`schemas/specguard-domain/` 定版 SourceRef/Inventory/Snapshot/ParseResult/Requirement/Acceptance/TraceEdge DTO 与显式版本字段，并建立 `Cargo.toml` 最小锁定依赖；`tests/model_contract.rs` 验证必需字段、未知版本、确定性编码。对应 “Frozen source scope and bounded parsing”“Stable requirement identity and typed trace graph”；验收为合法/缺字段/未知版本样本结果固定。
-- [ ] 1.2 在 `src/source.rs` 实现 discover 与权威源冲突诊断，明确只支持配置列出的根/版本；`tests/source_discovery.rs` 比较运行前后文件摘要并测试有源/无源/冲突/越界。对应 “Read-only versioned source discovery”；验收为零源文件改动且所有来源有终态。
+- [x] 1.1 在 `src/model.rs`、`schemas/specguard-domain/` 定版 SourceRef/Inventory/Snapshot/ParseResult/Requirement/Acceptance/TraceEdge DTO 与显式版本字段，并建立 `Cargo.toml` 最小锁定依赖；`tests/model_contract.rs` 验证必需字段、未知版本、确定性编码。对应 “Frozen source scope and bounded parsing”“Stable requirement identity and typed trace graph”；验收为合法/缺字段/未知版本样本结果固定。
+- [x] 1.2 在 `src/source.rs` 实现 discover 与权威源冲突诊断，明确只支持配置列出的根/版本；`tests/source_discovery.rs` 比较运行前后文件摘要并测试有源/无源/冲突/越界。对应 “Read-only versioned source discovery”；验收为零源文件改动且所有来源有终态。
 - [ ] 1.3 在 `src/source.rs` 实现 freeze、dirty 内容摘要与读取漂移检测；`tests/source_snapshot.rs` 覆盖源突变、符号链接、不同 Git 对象格式及错误编码。对应 “Frozen source scope and bounded parsing”；验收为拒绝混合快照且不假造 OID。
 - [ ] 1.4 在 `src/parser.rs`、`adapters/markdown/`、`adapters/openspec/` 固定一个明确格式版本并实现逐源能力/覆盖；用 `fixtures/source-versions/`、`tests/parser_coverage.rs` 测试合法、坏 YAML、未知版本、非 UTF-8、资源超限。对应 “Read-only versioned source discovery”“Frozen source scope and bounded parsing”；验收为版本矩阵仅列实测支持、预算写入配置且超限不完整。
 - [ ] 1.5 在 `src/graph.rs` 实现 namespace/ID 唯一性、关系类型/方向和来源定位；`tests/graph_identity.rs` 验证重复项不会被覆盖、断链可定位、输入乱序结果一致。对应 “Stable requirement identity and typed trace graph”；验收为每个冲突源均可查。
-- [ ] 1.6 在 `src/graph.rs` 实现显式 ID 映射校验与有界关系索引，默认不推断重命名；`tests/graph_migration.rs` 验证双射冲突、映射环、合法移动和无映射删除/新增。对应 “Stable requirement identity and typed trace graph”；验收为所有环样本有限结束且无错误身份合并。
-- [ ] 1.7 在 `src/rules.rs` 实现 validate_graph 与冻结必查集合；`tests/structural_rules.rs` 为重复/引用/验收各建立合法、违规、工具故障、覆盖不足 fixture。对应 “Frozen deterministic acceptance obligations”；验收为必需 ID 一个不漏、未解析目标不伪装缺失。
+- [x] 1.6 在 `src/graph.rs` 实现显式 ID 映射校验与有界关系索引，默认不推断重命名；`tests/graph_migration.rs` 验证双射冲突、映射环、合法移动和无映射删除/新增。对应 “Stable requirement identity and typed trace graph”；验收为所有环样本有限结束且无错误身份合并。
+- [x] 1.7 在 `src/rules.rs` 实现 validate_graph 与冻结必查集合；`tests/structural_rules.rs` 为重复/引用/验收各建立合法、违规、工具故障、覆盖不足 fixture。对应 “Frozen deterministic acceptance obligations”；验收为必需 ID 一个不漏、未解析目标不伪装缺失。
 
 ## 2. Approved baseline and obligation handoff — SG-BASELINE completion
 
 **Interfaces:** `ApprovalValidationPort` 接收不可变基线与外部引用，返回认证上下文/不可核验错误；`compare_baseline(approved, candidateGraph) -> BaselineDiff`；`impact(diff, graph) -> ImpactSet`；`export_obligations(graph, approved, scope) -> ObligationSet`。可用显式测试替身启动，生产认证依赖 GE-TRUST；native 输出不需要等待整个引擎完成。
 
-- [ ] 2.1 在 `src/baseline.rs`、`schemas/specguard-domain/baseline.json` 定义 ApprovedBaseline 与 proposed/approved/superseded/expired/revoked 状态消费，不提供批准写入；`tests/baseline_contract.rs` 检查 revision/digest/policy/scope/effective period 绑定。对应 “Authenticated immutable approved baseline”；验收为缺绑定与候选布尔批准不能构成基线。
-- [ ] 2.2 在 `src/integration/approval.rs` 定义只读 ApprovalValidationPort 并实现显式测试替身；`tests/approval_validation.rs` 覆盖伪造身份、范围错配、过期、撤销、服务不可用。对应 “Authenticated immutable approved baseline”；验收为无法核验和已确认未授权分开，测试批准不可进入生产 profile。
-- [ ] 2.3 在 `src/baseline.rs` 实现按稳定 ID 比较新增/删除/移动/引用变化；`tests/baseline_diff.rs` 覆盖完整删除与同样输入的 partial 变体。对应 “Conservative baseline diff and impact”；验收为 partial 不产生确定删除结论，原基线不改动。
-- [ ] 2.4 在 `src/baseline.rs` 固定首个结构化条件类型/单位比较合同；`tests/condition_comparison.rs` 验证收紧/放宽、单位不匹配、自由文本重述。对应 “Conservative baseline diff and impact”；验收为仅审核类型输出强弱，自由文本进入 review，不得依赖模型分数 enforce。
-- [ ] 2.5 在 `src/graph.rs` 实现 impact 的反向索引和代表路径；`tests/impact_paths.rs` 验证多路径/环/超预算与稳定排序。对应 “Conservative baseline diff and impact”；验收为每个受影响节点有可解释路径、遍历有界且不报告测试已失败。
-- [ ] 2.6 在 `src/obligations.rs`、`schemas/specguard-domain/obligations.json` 定版 export_obligations，输出 ID、来源/基线/候选摘要、范围和覆盖；`tests/obligation_export.rs` 验证完整导出、缺验收、partial 和摘要漂移。对应 “Versioned frozen TestObligation export”；验收为无 testPassed 虚构字段，partial 不能声明完整计划。
+- [x] 2.1 在 `src/baseline.rs`、`schemas/specguard-domain/baseline.json` 定义 ApprovedBaseline 与 proposed/approved/superseded/expired/revoked 状态消费，不提供批准写入；`tests/baseline_contract.rs` 检查 revision/digest/policy/scope/effective period 绑定。对应 “Authenticated immutable approved baseline”；验收为缺绑定与候选布尔批准不能构成基线。
+- [x] 2.2 在 `src/integration/approval.rs` 定义只读 ApprovalValidationPort 并实现显式测试替身；`tests/approval_validation.rs` 覆盖伪造身份、范围错配、过期、撤销、服务不可用。对应 “Authenticated immutable approved baseline”；验收为无法核验和已确认未授权分开，测试批准不可进入生产 profile。
+- [x] 2.3 在 `src/baseline.rs` 实现按稳定 ID 比较新增/删除/移动/引用变化；`tests/baseline_diff.rs` 覆盖完整删除与同样输入的 partial 变体。对应 “Conservative baseline diff and impact”；验收为 partial 不产生确定删除结论，原基线不改动。
+- [x] 2.4 在 `src/baseline.rs` 固定首个结构化条件类型/单位比较合同；`tests/condition_comparison.rs` 验证收紧/放宽、单位不匹配、自由文本重述。对应 “Conservative baseline diff and impact”；验收为仅审核类型输出强弱，自由文本进入 review，不得依赖模型分数 enforce。
+- [x] 2.5 在 `src/graph.rs` 实现 impact 的反向索引和代表路径；`tests/impact_paths.rs` 验证多路径/环/超预算与稳定排序。对应 “Conservative baseline diff and impact”；验收为每个受影响节点有可解释路径、遍历有界且不报告测试已失败。
+- [x] 2.6 在 `src/obligations.rs`、`schemas/specguard-domain/obligations.json` 定版 export_obligations，输出 ID、来源/基线/候选摘要、范围和覆盖；`tests/obligation_export.rs` 验证完整导出、缺验收、partial 和摘要漂移。对应 “Versioned frozen TestObligation export”；验收为无 testPassed 虚构字段，partial 不能声明完整计划。
 - [ ] 2.7 在 `fixtures/handoffs/`、`tests/baseline_handoff.rs` 固定 SG-BASELINE golden fixtures 与测试命令，记录 TestGuard/ArchGuard 消费的版本和必需字段；对应 “Versioned frozen TestObligation export”“Authenticated immutable approved baseline”；验收为消费者模拟明确标注、实际消费另有记录，稳定 ID/不可变基线/义务三项全部可验证才交付阶段门。
 
 ## 3. Candidate-bound producer — GE-CONTRACT/ADAPTER then GE-TRUST
@@ -76,3 +76,7 @@
 - [ ] 4.6 在 `docs/compatibility.md`、`fixtures/compatibility/`、`tests/compatibility_matrix.rs` 冻结 source/SDK/envelope/profile 实测矩阵及独立分发策略；对应 “Phased compatibility rollout and reversible rollback”；验收为未知能力失败关闭，无隐含 N/N-1，固定源码可开发而生产包等待 GE-RELEASE。
 - [ ] 4.7 在 `examples/rollout/`、`tests/rollout_rollback.rs` 实现 advisory→shadow→opt-in→enforce 的显式配置和适配器独立回退；对应 “Phased compatibility rollout and reversible rollback”；验收为历史附件/源文档保留，必需能力回退后不假放行，CodeGuard 原生命令和退出码不变。
 - [ ] 4.8 在 `fixtures/end-to-end/`、`tests/joint_gate.rs` 与相关守卫执行两个并行需求、精确 synthetic queue candidate、审批过期/撤销、基线漂移、晚完成和回退联合场景；对应 “Phased compatibility rollout and reversible rollback”“Exact candidate binding and concurrent isolation”；验收为保存真实对端版本/命令/结果、引用 CodeGuard native parity 证据，不用模拟结果或 OpenSpec 文档验证勾选完成。
+
+## Local reviewed acceptance checkpoint
+
+Independently reviewed local implementation accepts tasks 1.1, 1.2, 1.6, 1.7, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6. See docs/implementation-progress.md for evidence. These checkmarks cover the explicitly supported local profiles, not production authentication, hosted enforcement or release. Other tasks remain pending.

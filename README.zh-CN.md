@@ -52,10 +52,10 @@ specguard doctor ROOT POLICY.json
 specguard scan ROOT POLICY.json BINDING.json REQUIRED.json
 specguard trace ROOT POLICY.json BINDING.json REQUIRED.json
 specguard diff ROOT POLICY.json BINDING.json BASELINE.json --unverified-baseline
-specguard check ROOT REQUEST.json [--cancel]
+specguard check ROOT REQUEST.json [--cancel] [--report-dir PRIVATE_DIR]
 ~~~
 
-精确约定见 [CLI 文档](docs/cli.md)与[实际进程测试](tests/cli_contract.rs)。已有 trace-check/trace-export 命令继续保留。当前 check 实测0 ALLOW、2 BLOCK、4错误/取消，JSON 写 stdout、诊断写 stderr。结构检查保持 Enforce-only，不会为制造退出码3而降级强制发现；REQUIRE_APPROVAL 仍未实测可达。diff 必须显式声明未认证基线；`--report` 被拒绝且不修改任何路径，旧文件不能代表本轮成功。
+精确约定见 [CLI 文档](docs/cli.md)与[实际进程测试](tests/cli_contract.rs)。保留 trace-check/trace-export。check 实测 0 ALLOW、2 BLOCK、新增显式版本化 baseline-review profile 的 3 REQUIRE_APPROVAL，以及 4 错误/取消；结构发现仍保持 Enforce-only。JSON 写 stdout，诊断写 stderr。`--report-dir` 通过 GE 只发布不可覆盖的 envelope receipt，完整 bundle 仍在 stdout，原始工件须独立保存并经授权解析。任意文件 `--report` 仍不支持；旧文件不代表本轮成功。此本地 CLI 不认证候选、控制器或基线。
 
 明确版本的 Markdown 和固定 OpenSpec 来源已实现并有测试；详见[实施证据](docs/implementation-progress.md)。Spec Kit、Superpowers 及其他外部插件仍是未验证目标。原技术设计中的 flag 形式命令属于目标，不是当前语法。MCP、可信门禁使用及正式安装分发仍待完成。读取来源不会安装工具、下载依赖、执行文档指令或发放批准。
 

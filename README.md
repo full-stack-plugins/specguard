@@ -52,10 +52,10 @@ specguard doctor ROOT POLICY.json
 specguard scan ROOT POLICY.json BINDING.json REQUIRED.json
 specguard trace ROOT POLICY.json BINDING.json REQUIRED.json
 specguard diff ROOT POLICY.json BINDING.json BASELINE.json --unverified-baseline
-specguard check ROOT REQUEST.json [--cancel]
+specguard check ROOT REQUEST.json [--cancel] [--report-dir PRIVATE_DIR]
 ~~~
 
-See the exact [CLI contract](docs/cli.md) and executable [CLI tests](tests/cli_contract.rs). Legacy trace-check/trace-export remain supported. Current check produces actual0 ALLOW,2 BLOCK and4 error/cancelled, with JSON stdout and diagnostics stderr. The Enforce-only structural producer cannot produce REQUIRE_APPROVAL; exit3 remains reserved, not demonstrated. Diff explicitly lacks approval authentication. `--report` is rejected and no path is modified. Prior output files do not represent a new successful run.
+See the exact [CLI contract](docs/cli.md) and executable [CLI tests](tests/cli_contract.rs). Legacy trace-check/trace-export remain supported. Check produces actual 0 ALLOW, 2 BLOCK, 3 REQUIRE_APPROVAL through the opt-in versioned baseline-review profile, and 4 error/cancelled. Structural findings remain Enforce-only. JSON uses stdout and diagnostics stderr. `--report-dir` publishes only immutable envelope receipts through GE; full bundles remain stdout and artifacts need separate authorized storage. Arbitrary-file `--report` stays unsupported. Prior files never represent a new successful run. Candidate/controller/baseline authentication remains outside this local CLI.
 
 Explicit Markdown and pinned OpenSpec source versions are implemented and tested; see [compatibility evidence](docs/implementation-progress.md). Spec Kit, Superpowers and other external plugin adapters are unverified targets. The flag-based command examples in the original technical design remain proposals, not current syntax. MCP, authenticated gate usage and released installation remain future work. Reading sources does not install tools, fetch dependencies, execute document commands or issue approvals.
 

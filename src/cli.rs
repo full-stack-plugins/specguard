@@ -13,9 +13,9 @@ use std::{collections::BTreeSet, io::Read, path::Path};
 const HELP:&str="specguard doctor ROOT POLICY.json
 specguard scan|trace|trace-check|trace-export ROOT POLICY.json BINDING.json REQUIRED.json
 specguard diff ROOT POLICY.json BINDING.json BASELINE.json --unverified-baseline
-specguard check ROOT REQUEST.json [--cancel]
-All commands are read-only, JSON stdout. --report is unsupported and modifies no path.
-check: 0 ALLOW, 2 BLOCK, 4 error/cancelled. Structural profile cannot produce REQUIRE_APPROVAL (reserved exit 3).
+specguard check ROOT REQUEST.json [--cancel] [--report-dir PRIVATE_DIR]
+Source access is read-only, JSON stdout. --report-dir publishes only an immutable envelope receipt; attachments remain stdout. --report is unsupported.
+check: 0 ALLOW, 2 BLOCK, 3 REQUIRE_APPROVAL, 4 error/cancelled. Exit 3 requires the explicit baseline-review profile.
 Query commands: 0 on produced output, 4 on input/runtime errors. Legacy trace-check/trace-export retain 0/2/4.
 Check and diff do not authenticate candidate/controller/approval.
 ";
@@ -51,11 +51,15 @@ struct CheckRequest {
     invocation: Invocation,
     mapping: ProtectedMapping,
     finished_at: String,
+    #[serde(default)]
+    review: Option<crate::integration::baseline_review::BaselineReview>,
 }
 #[derive(Deserialize)]
 enum CheckVersion {
     #[serde(rename = "specguard.cli-check/v1alpha1")]
     V1,
+    #[serde(rename = "specguard.cli-check-baseline-review/v1alpha1")]
+    BaselineReview,
 }
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -224,22 +228,55 @@ pub fn run(args: &[String]) -> Result<i32, String> {
             )?;
             Ok(0)
         }
-        Some("check") if args.len() == 3 || (args.len() == 4 && args[3] == "--cancel") => {
+        Some("check") if args.len() >= 3 => {
+            let mut cancel = false;
+            let mut report_dir = None;
+            let mut index = 3;
+            while index < args.len() {
+                match args[index].as_str() {
+                    "--cancel" if !cancel => {
+                        cancel = true;
+                        index += 1;
+                    }
+                    "--report-dir"
+                        if report_dir.is_none()
+                            && index + 1 < args.len()
+                            && !args[index + 1].starts_with("--") =>
+                    {
+                        report_dir = Some(Path::new(&args[index + 1]));
+                        index += 2;
+                    }
+                    _ => return Err("invalid or duplicate check option".into()),
+                }
+            }
             let request: CheckRequest = read(&args[2])?;
-            let _version = request.api_version;
+            match (&request.api_version, &request.review) {
+                (CheckVersion::V1, None) | (CheckVersion::BaselineReview, Some(_)) => {}
+                _ => return Err("request profile requires exact review inputs; no fallback".into()),
+            }
             let root = Path::new(&args[1]);
             let inventory = discover(root, &request.source_policy)?;
             let snapshot = freeze(root, &inventory, request.binding)?;
-            let prepared = prepare(
-                root,
-                &snapshot,
-                request.invocation,
-                &request.required,
-                &request.mapping,
-            )
+            let prepared = match &request.review {
+                Some(review) => crate::integration::producer::prepare_baseline_review(
+                    root,
+                    &snapshot,
+                    request.invocation,
+                    &request.required,
+                    &request.mapping,
+                    review,
+                ),
+                None => prepare(
+                    root,
+                    &snapshot,
+                    request.invocation,
+                    &request.required,
+                    &request.mapping,
+                ),
+            }
             .map_err(|e| format!("{}: {}", e.code, e.message))?;
             let token = CancellationToken::new();
-            if args.len() == 4 {
+            if cancel {
                 token.cancel();
             }
             let recovery = prepared.recovery_receipt();
@@ -252,7 +289,7 @@ pub fn run(args: &[String]) -> Result<i32, String> {
                 authentication_profile: "unverified",
                 bundle,
             };
-            let bytes = match encode(&output) {
+            let mut bytes = match encode(&output) {
                 Ok(bytes) => bytes,
                 Err(_) => {
                     let mut history = crate::integration::runtime::History::default();
@@ -271,6 +308,40 @@ pub fn run(args: &[String]) -> Result<i32, String> {
                     encode(&output)?
                 }
             };
+            if let Some(directory) = report_dir {
+                let publication = guardengine::integration::stage_attempt(
+                    directory,
+                    &output.bundle.envelope,
+                    guardengine::integration::EvidenceProfile::EngineBacked,
+                )
+                .and_then(|staged| staged.publish());
+                if let Err(error) = publication {
+                    eprintln!(
+                        "{}",
+                        serde_json::json!({"code":"cli.publication_failed","message":format!("{error}; existing paths are not modified or evidence of this invocation; a sync failure requires reconciliation")})
+                    );
+                    // Existing failed attempts already have a valid null decision and
+                    // original runtime diagnostic bytes. Storage failure must not erase them.
+                    if output.bundle.envelope.run_status
+                        == guardengine::integration::RunStatus::Completed
+                    {
+                        let mut history = crate::integration::runtime::History::default();
+                        for source in &snapshot.inventory.sources {
+                            history.record(source);
+                        }
+                        output.bundle = recovery
+                            .failure(
+                                guardengine::integration::RunStatus::Error,
+                                "cli.publication_failed",
+                                &request.finished_at,
+                                history,
+                            )
+                            .map_err(|e| format!("{}: {}", e.code, e.message))?;
+                    }
+                    output.bundle.verify()?;
+                    bytes = encode(&output)?;
+                }
+            }
             let code = match output.bundle.envelope.decision {
                 Some(guardengine::Decision::Allow) => 0,
                 Some(guardengine::Decision::Block) => 2,

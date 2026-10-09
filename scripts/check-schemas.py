@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from jsonschema import Draft202012Validator
 root = Path(__file__).resolve().parents[1]
-for name, fixture in [('architecture-handoff', 'fixtures/handoffs/architecture/handoff.json'), ('trace', 'fixtures/traces/trace.json'), ('baseline', 'fixtures/handoffs/baseline.json'), ('obligations', 'fixtures/handoffs/obligations.json'), ('openspec-identities', 'fixtures/source-versions/openspec-1.14.1/identities.json')]:
+for name, fixture in [('cli-check-baseline-review', 'fixtures/cli-review/request.json'), ('architecture-handoff', 'fixtures/handoffs/architecture/handoff.json'), ('trace', 'fixtures/traces/trace.json'), ('baseline', 'fixtures/handoffs/baseline.json'), ('obligations', 'fixtures/handoffs/obligations.json'), ('openspec-identities', 'fixtures/source-versions/openspec-1.14.1/identities.json')]:
     schema = json.loads((root / f'schemas/specguard-domain/{name}.json').read_text())
     Draft202012Validator.check_schema(schema)
     validator = Draft202012Validator(schema)

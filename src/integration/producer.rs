@@ -73,7 +73,7 @@ pub(crate) fn preflight<T: Serialize>(value: &T) -> Result<(), String> {
     }
     serde_json::to_writer(Counter(0), value).map_err(|_| "producer byte budget".into())
 }
-fn qualified(key: &Identity) -> Result<String, String> {
+pub(crate) fn qualified(key: &Identity) -> Result<String, String> {
     if [&key.namespace, &key.id].iter().any(|v| {
         v.is_empty()
             || v.len() > 1024
@@ -148,6 +148,7 @@ pub struct PreparedRun {
     required: BTreeSet<Identity>,
     coverage: Coverage,
     run_id: String,
+    review: Option<super::baseline_review::BaselineReview>,
 }
 
 pub fn prepare(
@@ -174,8 +175,47 @@ pub(crate) fn prepare_checked(
     work_profile: &str,
     verify: impl FnOnce(&crate::source::CandidateBinding) -> Result<(), String>,
 ) -> Result<PreparedRun, TransportDiagnostic> {
+    prepare_profile(
+        snapshot,
+        invocation,
+        required,
+        mapping,
+        work_profile,
+        verify,
+        None,
+    )
+}
+
+pub fn prepare_baseline_review(
+    root: &Path,
+    snapshot: &SourceSnapshot,
+    invocation: Invocation,
+    required: &BTreeSet<Identity>,
+    mapping: &ProtectedMapping,
+    review: &super::baseline_review::BaselineReview,
+) -> Result<PreparedRun, TransportDiagnostic> {
+    prepare_profile(
+        snapshot,
+        invocation,
+        required,
+        mapping,
+        super::baseline_review::PROFILE,
+        |binding| verify_candidate_objects(root, binding),
+        Some(review),
+    )
+}
+#[allow(clippy::too_many_arguments)]
+fn prepare_profile(
+    snapshot: &SourceSnapshot,
+    invocation: Invocation,
+    required: &BTreeSet<Identity>,
+    mapping: &ProtectedMapping,
+    work_profile: &str,
+    verify: impl FnOnce(&crate::source::CandidateBinding) -> Result<(), String>,
+    review: Option<&super::baseline_review::BaselineReview>,
+) -> Result<PreparedRun, TransportDiagnostic> {
     // All checks are borrowed until the immutable context is established.
-    preflight(&(snapshot, &invocation, required, mapping))
+    preflight(&(snapshot, &invocation, required, mapping, review))
         .map_err(|_| transport("input.budget"))?;
     if required.is_empty()
         || required.len() > 64
@@ -187,6 +227,16 @@ pub(crate) fn prepare_checked(
     mapping
         .validate(required)
         .map_err(|_| transport("mapping.invalid"))?;
+    if let Some(review) = review {
+        review
+            .validate(
+                required,
+                &invocation.repo_id,
+                invocation.baseline_digest.as_deref(),
+                mapping,
+            )
+            .map_err(|_| transport("review.invalid"))?;
+    }
     if crate::model::digest(&(&snapshot.inventory, &snapshot.binding, &snapshot.contents))
         != snapshot.digest
     {
@@ -206,6 +256,9 @@ pub(crate) fn prepare_checked(
     ids.sort();
     let mut scopes: BTreeSet<String> = ids.iter().map(|id| format!("requirement:{id}")).collect();
     scopes.insert(format!("profile:{PROFILE}"));
+    if review.is_some() {
+        scopes.insert(format!("profile:{}", super::baseline_review::PROFILE));
+    }
     for source in &snapshot.inventory.sources {
         scopes.insert(format!("source:{}", source.path));
     }
@@ -243,8 +296,14 @@ pub(crate) fn prepare_checked(
         profile: Some(EvidenceProfile::EngineBacked),
         started_at: invocation.started_at,
     };
-    let work_key =
-        super::freshness::WorkKey::freeze(&draft, snapshot, required, mapping, work_profile);
+    let profile_key = review.map(|r| format!("{}:{}", work_profile, crate::model::digest(r)));
+    let work_key = super::freshness::WorkKey::freeze(
+        &draft,
+        snapshot,
+        required,
+        mapping,
+        profile_key.as_deref().unwrap_or(work_profile),
+    );
     let recovery = super::runtime::Recovery::from_draft(&draft);
     let attempt = prepare_attempt(draft)?;
     Ok(PreparedRun {
@@ -256,6 +315,7 @@ pub(crate) fn prepare_checked(
         required: required.clone(),
         coverage,
         run_id: invocation.run_id,
+        review: review.cloned(),
     })
 }
 
@@ -294,6 +354,10 @@ struct DomainEvidence<'a> {
     findings: &'a [Finding],
     mapping: &'a ProtectedMapping,
     required: &'a BTreeSet<Identity>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    review: Option<&'a super::baseline_review::BaselineReview>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    baseline_diff: Option<&'a crate::baseline::BaselineDiff>,
 }
 
 // Admission estimate uses borrowed bytes only. Each source line is charged as
@@ -609,25 +673,44 @@ impl PreparedRun {
         }
         let projected = (|| -> Result<_, String> {
             preflight(&(&graph, &findings))?;
-            let facts = project_facts(
+            let mut facts = project_facts(
                 &findings,
                 &self.mapping,
                 complete,
                 &self.run_id,
                 &self.snapshot.digest,
             )?;
-            let report =
-                evaluate_bounded(&self.mapping.contract, &facts).map_err(|e| e.to_string())?;
+            let mut contract = self.mapping.contract.clone();
+            let mut baseline_diff = None;
+            if let Some(review) = &self.review {
+                contract
+                    .spec
+                    .rules
+                    .extend(review.contract.spec.rules.iter().cloned());
+                // Structural and partial failures remain decisive. Review cannot repair them.
+                if complete && findings.is_empty() {
+                    let (diff, extra) = review.project(&graph)?;
+                    facts.facts.extend(extra);
+                    baseline_diff = Some(diff);
+                }
+            }
+            let report = evaluate_bounded(&contract, &facts).map_err(|e| e.to_string())?;
             let domain = encode(&DomainEvidence {
                 api_version: "specguard.producer/v1alpha1",
-                profile: PROFILE,
+                profile: if self.review.is_some() {
+                    super::baseline_review::PROFILE
+                } else {
+                    PROFILE
+                },
                 graph: &graph,
                 findings: &findings,
                 mapping: &self.mapping,
                 required: &self.required,
+                review: self.review.as_ref(),
+                baseline_diff: baseline_diff.as_ref(),
             })?;
             Ok((
-                encode(&self.mapping.contract)?,
+                encode(&contract)?,
                 encode(&facts)?,
                 encode(&report)?,
                 domain,
@@ -702,7 +785,12 @@ impl ProducedRun {
         let decoded: DomainArtifact =
             serde_json::from_slice(domain).map_err(|_| "invalid domain artifact")?;
         if decoded.api_version != "specguard.producer/v1alpha1"
-            || decoded.profile != PROFILE
+            || decoded.profile
+                != if decoded.review.is_some() {
+                    super::baseline_review::PROFILE
+                } else {
+                    PROFILE
+                }
             || decoded.graph.parsed.snapshot_digest != self.envelope.binding.source_snapshot_digest
             || decoded.graph.parsed.candidate_oid != self.envelope.binding.candidate_oid
         {
@@ -725,6 +813,9 @@ impl ProducedRun {
         let mut expected_scopes: BTreeSet<String> =
             ids.iter().map(|id| format!("requirement:{id}")).collect();
         expected_scopes.insert(format!("profile:{PROFILE}"));
+        if decoded.review.is_some() {
+            expected_scopes.insert(format!("profile:{}", super::baseline_review::PROFILE));
+        }
         expected_scopes.extend(
             decoded
                 .graph
@@ -744,18 +835,37 @@ impl ProducedRun {
         let actual_contract =
             load_contract_yaml(self.contract.as_deref().ok_or("missing contract")?)
                 .map_err(|e| e.to_string())?;
-        if actual_contract != decoded.mapping.contract {
-            return Err("domain contract mismatch".into());
-        }
         let actual_facts = load_facts_json(self.facts.as_deref().ok_or("missing facts")?)
             .map_err(|e| e.to_string())?;
-        let expected = project_facts(
+        let mut expected = project_facts(
             &expected_findings,
             &decoded.mapping,
             decoded.graph.complete(),
             &self.envelope.run_id,
             &self.envelope.binding.source_snapshot_digest,
         )?;
+        let mut expected_contract = decoded.mapping.contract.clone();
+        let mut expected_diff = None;
+        if let Some(review) = &decoded.review {
+            review.validate(
+                &decoded.required,
+                &self.envelope.binding.repo_id,
+                self.envelope.binding.baseline_digest.as_deref(),
+                &decoded.mapping,
+            )?;
+            expected_contract
+                .spec
+                .rules
+                .extend(review.contract.spec.rules.iter().cloned());
+            if decoded.graph.complete() && expected_findings.is_empty() {
+                let (diff, extra) = review.project(&decoded.graph)?;
+                expected.facts.extend(extra);
+                expected_diff = Some(diff);
+            }
+        }
+        if actual_contract != expected_contract || expected_diff != decoded.baseline_diff {
+            return Err("domain contract/diff mismatch".into());
+        }
         if expected != actual_facts {
             return Err("domain projection mismatch".into());
         }
@@ -771,4 +881,8 @@ struct DomainArtifact {
     findings: Vec<Finding>,
     mapping: ProtectedMapping,
     required: BTreeSet<Identity>,
+    #[serde(default)]
+    review: Option<super::baseline_review::BaselineReview>,
+    #[serde(default)]
+    baseline_diff: Option<crate::baseline::BaselineDiff>,
 }

@@ -96,24 +96,122 @@ fn safe(root: &Path, relative: &str) -> Result<std::path::PathBuf, String> {
     }
     Ok(path)
 }
+#[cfg(unix)]
+fn open_regular(path: &Path, directory: bool) -> Result<std::fs::File, String> {
+    use std::os::{
+        fd::{AsRawFd, FromRawFd},
+        unix::ffi::OsStrExt,
+    };
+    use std::path::Component;
+    let absolute = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        std::env::current_dir()
+            .map_err(|e| e.to_string())?
+            .join(path)
+    };
+    let parts: Vec<_> = absolute
+        .components()
+        .filter(|c| !matches!(c, Component::RootDir | Component::CurDir))
+        .collect();
+    let mut handle = std::fs::File::open("/").map_err(|e| e.to_string())?;
+    for (index, part) in parts.iter().enumerate() {
+        let Component::Normal(name) = part else {
+            return Err("unsafe source path".into());
+        };
+        let name = std::ffi::CString::new(name.as_bytes()).map_err(|_| "NUL path")?;
+        let is_dir = index + 1 < parts.len() || directory;
+        let flags = libc::O_RDONLY
+            | libc::O_CLOEXEC
+            | libc::O_NOFOLLOW
+            | libc::O_NONBLOCK
+            | if is_dir { libc::O_DIRECTORY } else { 0 };
+        // SAFETY: the parent descriptor and NUL-terminated name live through openat;
+        // ownership of the returned descriptor transfers once to File below.
+        let fd = unsafe { libc::openat(handle.as_raw_fd(), name.as_ptr(), flags) };
+        if fd < 0 {
+            return Err(format!(
+                "unsafe or unreadable path {}: {}",
+                path.display(),
+                std::io::Error::last_os_error()
+            ));
+        }
+        handle = unsafe { std::fs::File::from_raw_fd(fd) };
+    }
+    let metadata = handle.metadata().map_err(|e| e.to_string())?;
+    if (directory && !metadata.is_dir()) || (!directory && !metadata.is_file()) {
+        return Err("not a regular source file/directory".into());
+    }
+    Ok(handle)
+}
+#[cfg(not(unix))]
+fn open_regular(_: &Path, _: bool) -> Result<std::fs::File, String> {
+    Err("descriptor-safe source capture unsupported on this platform".into())
+}
+
+#[derive(PartialEq, Eq)]
+struct FileStamp {
+    length: u64,
+    modified: std::time::SystemTime,
+    #[cfg(unix)]
+    identity: (u64, u64, i64, i64),
+}
+fn stamp(file: &std::fs::File) -> Result<FileStamp, String> {
+    let metadata = file.metadata().map_err(|e| e.to_string())?;
+    #[cfg(unix)]
+    use std::os::unix::fs::MetadataExt;
+    Ok(FileStamp {
+        length: metadata.len(),
+        modified: metadata.modified().map_err(|e| e.to_string())?,
+        #[cfg(unix)]
+        identity: (
+            metadata.dev(),
+            metadata.ino(),
+            metadata.ctime(),
+            metadata.ctime_nsec(),
+        ),
+    })
+}
+struct CapturedFile {
+    bytes: Vec<u8>,
+    stamp: FileStamp,
+}
+impl CapturedFile {
+    fn read(root: &Path, relative: &str, max: usize) -> Result<Self, String> {
+        use std::io::Read;
+        let path = safe(root, relative)?;
+        let mut file = open_regular(&path, false)?;
+        let before = stamp(&file)?;
+        let mut bytes = Vec::new();
+        (&mut file)
+            .take(max.saturating_add(1) as u64)
+            .read_to_end(&mut bytes)
+            .map_err(|e| e.to_string())?;
+        if bytes.len() > max {
+            return Err("byte limit".into());
+        }
+        if before != stamp(&file)? {
+            return Err(format!("source drift: {relative}"));
+        }
+        Ok(Self {
+            bytes,
+            stamp: before,
+        })
+    }
+    fn verify(&self, root: &Path, relative: &str, max: usize) -> Result<(), String> {
+        let current = Self::read(root, relative, max)?;
+        if self.stamp != current.stamp || self.bytes != current.bytes {
+            return Err(format!("source drift: {relative}"));
+        }
+        Ok(())
+    }
+}
 fn read_bounded(root: &Path, path: &str, max: usize) -> Result<Vec<u8>, String> {
-    use std::io::Read;
-    let path = safe(root, path)?;
-    let f = std::fs::File::open(path).map_err(|e| e.to_string())?;
-    if !f.metadata().map_err(|e| e.to_string())?.is_file() {
-        return Err("not a regular file".into());
-    }
-    let mut bytes = Vec::new();
-    f.take(max.saturating_add(1) as u64)
-        .read_to_end(&mut bytes)
-        .map_err(|e| e.to_string())?;
-    if bytes.len() > max {
-        return Err("byte limit".into());
-    }
-    Ok(bytes)
+    Ok(CapturedFile::read(root, path, max)?.bytes)
 }
 pub fn discover(root: &Path, policy: &SourcePolicy) -> Result<SourceInventory, String> {
     use std::{collections::BTreeSet, time::Instant};
+    let _root_handle = open_regular(root, true)?;
     let start = Instant::now();
     let mut entries = Vec::new();
     let mut sources = Vec::new();
@@ -271,6 +369,11 @@ pub fn freeze(
     inventory: &SourceInventory,
     binding: CandidateBinding,
 ) -> Result<SourceSnapshot, String> {
+    let root_handle = open_regular(root, true)?;
+    let root_stamp = stamp(&root_handle)?;
+    if inventory.entries.len() > inventory.limits.max_files {
+        return Err("snapshot file limit".into());
+    }
     let actual = git(root, &["rev-parse", "--show-object-format"])?;
     if actual != binding.object_format {
         return Err("Git object format mismatch".into());
@@ -292,25 +395,29 @@ pub fn freeze(
             return Err("OID is not a commit".into());
         }
     }
-    let mut contents = BTreeMap::new();
+    let mut captured = BTreeMap::new();
     for entry in &inventory.entries {
-        let bytes = read_bounded(root, &entry.path, inventory.limits.max_bytes)?;
-        if digest(&bytes) != entry.digest {
+        if captured.contains_key(&entry.path) {
+            return Err(format!("duplicate inventory path: {}", entry.path));
+        }
+        let file = CapturedFile::read(root, &entry.path, inventory.limits.max_bytes)?;
+        if digest(&file.bytes) != entry.digest {
             return Err(format!("source drift: {}", entry.path));
         }
-        contents.insert(entry.path.clone(), bytes);
+        captured.insert(entry.path.clone(), file);
     }
-    // A second pass detects changes while the scope was read; parsed bytes are owned and immutable.
-    for entry in &inventory.entries {
-        if digest(&read_bounded(
-            root,
-            &entry.path,
-            inventory.limits.max_bytes,
-        )?) != entry.digest
-        {
-            return Err(format!("source drift: {}", entry.path));
-        }
+    // Validate all owned captures after the read phase. Identity and ctime catch
+    // same-byte inode replacement and mutate/restore, in addition to digest drift.
+    for (path, file) in &captured {
+        file.verify(root, path, inventory.limits.max_bytes)?;
     }
+    if stamp(&open_regular(root, true)?)? != root_stamp {
+        return Err("source root drift".into());
+    }
+    let contents: BTreeMap<_, _> = captured
+        .into_iter()
+        .map(|(path, file)| (path, file.bytes))
+        .collect();
     let snapshot_digest = digest(&(inventory, &binding, &contents));
     Ok(SourceSnapshot {
         api_version: Version::V1,
@@ -319,4 +426,22 @@ pub fn freeze(
         contents,
         digest: snapshot_digest,
     })
+}
+
+#[cfg(all(test, unix))]
+mod snapshot_stability_tests {
+    #[test]
+    fn identical_bytes_replacement_and_restore_are_detected() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("a.md");
+        std::fs::write(&path, b"original").unwrap();
+        let read = super::CapturedFile::read(root.path(), "a.md", 1024).unwrap();
+        std::fs::write(root.path().join("replacement"), b"original").unwrap();
+        std::fs::rename(root.path().join("replacement"), &path).unwrap();
+        assert!(read.verify(root.path(), "a.md", 1024).is_err());
+        let read = super::CapturedFile::read(root.path(), "a.md", 1024).unwrap();
+        std::fs::write(&path, b"mutated").unwrap();
+        std::fs::write(&path, b"original").unwrap();
+        assert!(read.verify(root.path(), "a.md", 1024).is_err());
+    }
 }

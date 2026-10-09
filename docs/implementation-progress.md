@@ -54,3 +54,20 @@ Final source-reader comparison added two RED→GREEN cases: bold prose containin
 Independent review found an upstream-valid H5 scenario directly below an H3 requirement was omitted while coverage stayed complete. TDD reproduces this plus the same omission for skipped H4/H5 requirement nodes. The native reader now validates heading-parent relationships before any nodes are emitted: section→H3 requirement→H4 scenario; skipped direct-child levels return Unsupported. Deeper scenario-body headings remain raw text, and fenced/quoted headings remain data. Missing IDs still make canonical extra H4 scenarios incomplete; supplying IDs does not enable unsupported hierarchy.
 
 Validation: 47 Rust tests pass (14 native test functions including depth/placement/fence/quote matrices); strict Clippy and schema checks pass. Official OpenSpec 1.14.1 validates 26 hierarchy variants and demonstrates the extra scenarios/requirements in skipped-level cases. Original public-API probe now reports deeper-scenario complete=false/acceptances=0, while the quoted control remains complete=true/acceptances=2. Actual TestGuard fixture consumer 2/2 and FlowGuard baseline consumer 1/1 pass. Checkboxes unchanged pending re-review; other native/atomicity/production limitations remain.
+
+## Snapshot/graph continuation (base 7deaf72)
+
+Task 1.3: TDD root/ancestor symlinks, stable descriptor reads and same-byte file replacement, dirty owned bytes, invalid encoding and actual SHA-1/SHA-256 commits. Keep source DTOs and parser behavior compatible. Task 1.5 follows: typed ADR/task target identities and full duplicate/broken-source diagnostics without weakening the native OpenSpec parser or changing existing consumer wire fields. New work stays unchecked pending independent review; root authorized recording prior native parser 1.4 acceptance (11/30 total).
+
+
+### Current continuation checkpoint
+
+Root authorized recording task 1.4's independent acceptance at 7deaf72: **11/30 accepted**. Tasks 1.3 and 1.5 remain unchecked pending review; their new implementation does not re-grade the accepted parser.
+
+Task 1.3 now uses Unix descriptor-relative component opens with O_NOFOLLOW/O_DIRECTORY and O_NONBLOCK; root and ancestor symlinks and special files are rejected. Captures compare device/inode/ctime/mtime/length across read and verification, plus bytes against inventory digests. Identical-byte inode replacement and mutate/restore are detected on this host. Non-Unix capture explicitly returns unsupported rather than using a weaker path walk. The libc pin is shared-compatible 0.2.177. Duplicate inventory paths and inventory file-budget overflow fail closed. Frozen invalid UTF-8 remains owned bytes and the unchanged parser emits malformed coverage. Real full SHA-1/SHA-256 commit validation remains mandatory; dirty bytes change the snapshot digest without fabricating a Git OID.
+
+This provides detected-drift rejection and owned immutable parser input, **not an OS-atomic multi-file snapshot transaction**. Filesystem timestamp granularity and privileged mutation remain limits; an authenticated protected gate still needs an immutable checkout/snapshot and task 3.5 candidate-tree binding. Discovery traversal is not an OS sandbox. Additions outside the frozen inventory are not automatically new obligations. No full hostile-filesystem atomicity claim is made.
+
+Task 1.5 adds a separate in-memory TypedSpecificationGraph/TraceTargets API for explicit stable ADR/task IDs, provenance, typed relation direction/targets, preserved duplicate locations and deterministic ordering. Incomplete target source coverage prevents definite missing-target claims. Existing ParseResult/SpecificationGraph serialization, source parser and TG/FG APIs remain unchanged. No native ADR/task source format, serialized target artifact or production trace provider is claimed; callers must supply the explicit inventory and per-source coverage. Legacy graphs continue to fail closed for unsupported trace relations.
+
+Full verification: 57 Rust tests, warning-free Clippy; see external specguard-source-graph-report.md for actual commands, RED/GREEN limits and consumer checks.

@@ -374,27 +374,7 @@ pub fn freeze(
     if inventory.entries.len() > inventory.limits.max_files {
         return Err("snapshot file limit".into());
     }
-    let actual = git(root, &["rev-parse", "--show-object-format"])?;
-    if actual != binding.object_format {
-        return Err("Git object format mismatch".into());
-    }
-    let len = match actual.as_str() {
-        "sha1" => 40,
-        "sha256" => 64,
-        _ => return Err("unsupported Git object format".into()),
-    };
-    for oid in [&binding.candidate_oid, &binding.base_oid] {
-        if oid.len() != len
-            || !oid
-                .bytes()
-                .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
-        {
-            return Err("invalid full Git OID".into());
-        }
-        if git(root, &["cat-file", "-t", oid])? != "commit" {
-            return Err("OID is not a commit".into());
-        }
-    }
+    verify_candidate_objects(root, &binding)?;
     let mut captured = BTreeMap::new();
     for entry in &inventory.entries {
         if captured.contains_key(&entry.path) {
@@ -444,4 +424,31 @@ mod snapshot_stability_tests {
         std::fs::write(&path, b"original").unwrap();
         assert!(read.verify(root.path(), "a.md", 1024).is_err());
     }
+}
+
+/// Read-only Git object validation; not producer authentication or clean-tree proof.
+pub fn verify_candidate_objects(root: &Path, binding: &CandidateBinding) -> Result<(), String> {
+    let _root = open_regular(root, true)?;
+    let actual = git(root, &["rev-parse", "--show-object-format"])?;
+    if actual != binding.object_format {
+        return Err("Git object format mismatch".into());
+    }
+    let len = match actual.as_str() {
+        "sha1" => 40,
+        "sha256" => 64,
+        _ => return Err("unsupported Git object format".into()),
+    };
+    for oid in [&binding.candidate_oid, &binding.base_oid] {
+        if oid.len() != len
+            || !oid
+                .bytes()
+                .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
+        {
+            return Err("invalid full Git OID".into());
+        }
+        if git(root, &["cat-file", "-t", oid])? != "commit" {
+            return Err("OID is not a commit".into());
+        }
+    }
+    Ok(())
 }

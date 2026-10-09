@@ -1,6 +1,6 @@
 # Specification Baseline Analysis Implementation Plan
 
-> **For agentic workers:** 后续实现使用 `superpowers:subagent-driven-development` 或 `superpowers:executing-plans` 按任务推进；后续已授权实现；根协调者已验收 11/30 项（含 7deaf72 的 native parser 1.4），新切片须独立复核后登记。
+> **For agentic workers:** 后续实现使用 `superpowers:subagent-driven-development` 或 `superpowers:executing-plans` 按任务推进；后续已授权实现；根协调者已验收 12/30 项（含 7deaf72 的 native parser 1.4），新切片须独立复核后登记。
 
 **Goal:** 建立只读规格图、可信批准基线、冻结验收义务和精确候选绑定证据。
 
@@ -33,7 +33,7 @@
 
 - [x] 1.1 在 `src/model.rs`、`schemas/specguard-domain/` 定版 SourceRef/Inventory/Snapshot/ParseResult/Requirement/Acceptance/TraceEdge DTO 与显式版本字段，并建立 `Cargo.toml` 最小锁定依赖；`tests/model_contract.rs` 验证必需字段、未知版本、确定性编码。对应 “Frozen source scope and bounded parsing”“Stable requirement identity and typed trace graph”；验收为合法/缺字段/未知版本样本结果固定。
 - [x] 1.2 在 `src/source.rs` 实现 discover 与权威源冲突诊断，明确只支持配置列出的根/版本；`tests/source_discovery.rs` 比较运行前后文件摘要并测试有源/无源/冲突/越界。对应 “Read-only versioned source discovery”；验收为零源文件改动且所有来源有终态。
-- [ ] 1.3 在 `src/source.rs` 实现 freeze、dirty 内容摘要与读取漂移检测；`tests/source_snapshot.rs` 覆盖源突变、符号链接、不同 Git 对象格式及错误编码。对应 “Frozen source scope and bounded parsing”；验收为拒绝混合快照且不假造 OID。
+- [x] 1.3 在 `src/source.rs` 实现 freeze、dirty 内容摘要与读取漂移检测；`tests/source_snapshot.rs` 覆盖源突变、符号链接、不同 Git 对象格式及错误编码。对应 “Frozen source scope and bounded parsing”；验收为拒绝混合快照且不假造 OID。
 - [x] 1.4 在 `src/parser.rs`、`adapters/markdown/`、`adapters/openspec/` 固定一个明确格式版本并实现逐源能力/覆盖；用 `fixtures/source-versions/`、`tests/parser_coverage.rs` 测试合法、坏 YAML、未知版本、非 UTF-8、资源超限。对应 “Read-only versioned source discovery”“Frozen source scope and bounded parsing”；验收为版本矩阵仅列实测支持、预算写入配置且超限不完整。
 - [ ] 1.5 在 `src/graph.rs` 实现 namespace/ID 唯一性、关系类型/方向和来源定位；`tests/graph_identity.rs` 验证重复项不会被覆盖、断链可定位、输入乱序结果一致。对应 “Stable requirement identity and typed trace graph”；验收为每个冲突源均可查。
 - [x] 1.6 在 `src/graph.rs` 实现显式 ID 映射校验与有界关系索引，默认不推断重命名；`tests/graph_migration.rs` 验证双射冲突、映射环、合法移动和无映射删除/新增。对应 “Stable requirement identity and typed trace graph”；验收为所有环样本有限结束且无错误身份合并。

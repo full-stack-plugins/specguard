@@ -3,7 +3,7 @@
 use crate::{
     graph::{SpecificationGraph, build_graph},
     model::{Identity, Terminal},
-    parser::parse,
+    parser::parse_controlled,
     rules::{Finding, FindingKind, validate_graph},
     source::{SourceSnapshot, verify_candidate_objects},
 };
@@ -140,6 +140,7 @@ impl ProtectedMapping {
 
 pub struct PreparedRun {
     attempt: BoundAttempt,
+    recovery: super::runtime::Recovery,
     snapshot: SourceSnapshot,
     mapping: ProtectedMapping,
     required: BTreeSet<Identity>,
@@ -210,7 +211,7 @@ pub fn prepare(
         source_snapshot_digest: snapshot.digest.clone(),
         baseline_digest: invocation.baseline_digest,
     };
-    let attempt = prepare_attempt(InvocationDraft {
+    let draft = InvocationDraft {
         run_id: invocation.run_id.clone(),
         producer: Some(Producer {
             guard: "SpecGuard".into(),
@@ -222,9 +223,12 @@ pub fn prepare(
         coverage: Some(coverage.clone()),
         profile: Some(EvidenceProfile::EngineBacked),
         started_at: invocation.started_at,
-    })?;
+    };
+    let recovery = super::runtime::Recovery::from_draft(&draft);
+    let attempt = prepare_attempt(draft)?;
     Ok(PreparedRun {
         attempt,
+        recovery,
         snapshot: snapshot.clone(),
         mapping: mapping.clone(),
         required: required.clone(),
@@ -241,11 +245,11 @@ pub struct ProducedRun {
     pub report: Option<Vec<u8>>,
     pub domain: Option<Vec<u8>>,
 }
-fn raw_digest(bytes: &[u8]) -> String {
+pub(crate) fn raw_digest(bytes: &[u8]) -> String {
     use sha2::{Digest, Sha256};
     format!("sha256:{:x}", Sha256::digest(bytes))
 }
-fn reference(run: &str, name: &str, bytes: &[u8]) -> ArtifactRef {
+pub(crate) fn reference(run: &str, name: &str, bytes: &[u8]) -> ArtifactRef {
     // Digest-derived storage namespace avoids treating opaque run IDs as paths.
     let run_hash = raw_digest(run.as_bytes());
     ArtifactRef {
@@ -387,10 +391,22 @@ fn project_facts(
 
 impl PreparedRun {
     pub fn cancel(self, finished_at: &str) -> Result<ProducedRun, TransportDiagnostic> {
-        self.terminal(RunStatus::Cancelled, "execution.cancelled", finished_at)
+        self.retained_failure(RunStatus::Cancelled, "execution.cancelled", finished_at)
     }
     pub fn fail(self, finished_at: &str) -> Result<ProducedRun, TransportDiagnostic> {
-        self.terminal(RunStatus::Error, "execution.failed", finished_at)
+        self.retained_failure(RunStatus::Error, "execution.failed", finished_at)
+    }
+    fn retained_failure(
+        self,
+        status: RunStatus,
+        code: &str,
+        finished_at: &str,
+    ) -> Result<ProducedRun, TransportDiagnostic> {
+        let mut history = super::runtime::History::default();
+        for source in &self.snapshot.inventory.sources {
+            history.record(source);
+        }
+        self.recovery.failure(status, code, finished_at, history)
     }
     fn terminal(
         self,
@@ -427,10 +443,79 @@ impl PreparedRun {
         })
     }
     pub fn complete(self, finished_at: &str) -> Result<ProducedRun, TransportDiagnostic> {
+        self.execute(
+            finished_at,
+            &super::runtime::CancellationToken::new(),
+            |_| {},
+        )
+    }
+    /// Execute with cooperative source-boundary cancellation and a trusted,
+    /// bounded progress observer. Panics unwind into a bound error; process
+    /// abort/OOM/signals and non-returning observers require an external host.
+    pub fn execute(
+        self,
+        finished_at: &str,
+        cancellation: &super::runtime::CancellationToken,
+        mut observe: impl FnMut(&crate::model::SourceStatus),
+    ) -> Result<ProducedRun, TransportDiagnostic> {
+        let recovery = self.recovery.clone();
+        let mut history = super::runtime::History::default();
+        for source in &self.snapshot.inventory.sources {
+            history.record(source);
+        }
+        if finished_at.len() > 4096 {
+            return super::runtime::finalize(
+                Ok(Err(transport("finish.budget"))),
+                &recovery,
+                cancellation,
+                finished_at,
+                history,
+            );
+        }
+        if cfg!(panic = "abort") {
+            return recovery.failure(
+                RunStatus::Error,
+                "runtime.unsupported",
+                finished_at,
+                history,
+            );
+        }
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            self.complete_inner(finished_at, |source| {
+                if cancellation.is_cancelled() {
+                    return Err(());
+                }
+                if let Some(source) = source {
+                    history.record(source);
+                    observe(source);
+                }
+                if cancellation.is_cancelled() {
+                    Err(())
+                } else {
+                    Ok(())
+                }
+            })
+        }));
+        super::runtime::finalize(result, &recovery, cancellation, finished_at, history)
+    }
+    fn complete_inner(
+        self,
+        finished_at: &str,
+        mut control: impl FnMut(Option<&crate::model::SourceStatus>) -> Result<(), ()>,
+    ) -> Result<ProducedRun, TransportDiagnostic> {
         if parser_preflight(&self.snapshot).is_err() {
             return self.terminal(RunStatus::Error, "parser.budget", finished_at);
         }
-        let graph = build_graph(parse(&self.snapshot));
+        let parsed = match parse_controlled(&self.snapshot, &mut control) {
+            Ok(parsed) => parsed,
+            Err(()) => {
+                return self.terminal(RunStatus::Cancelled, "execution.cancelled", finished_at);
+            }
+        };
+        if control(None).is_err() {
+            return self.terminal(RunStatus::Cancelled, "execution.cancelled", finished_at);
+        }
+        let graph = build_graph(parsed);
         if graph
             .parsed
             .sources
@@ -444,6 +529,9 @@ impl PreparedRun {
         }
         let complete = graph.complete();
         let findings = validate_graph(&graph, &self.required);
+        if control(None).is_err() {
+            return self.terminal(RunStatus::Cancelled, "execution.cancelled", finished_at);
+        }
         let projected = (|| -> Result<_, String> {
             preflight(&(&graph, &findings))?;
             let facts = project_facts(
@@ -475,6 +563,9 @@ impl PreparedRun {
             Ok(v) => v,
             Err(_) => return self.terminal(RunStatus::Error, "projection.failed", finished_at),
         };
+        if control(None).is_err() {
+            return self.terminal(RunStatus::Cancelled, "execution.cancelled", finished_at);
+        }
         let mut coverage = self.coverage;
         if complete {
             coverage.status = CoverageStatus::Complete;
@@ -504,9 +595,6 @@ impl PreparedRun {
             report: Some(report),
             domain: Some(domain),
         };
-        output
-            .verify()
-            .map_err(|_| transport("artifact.verification"))?;
         Ok(output)
     }
 }
@@ -517,14 +605,10 @@ impl ProducedRun {
             .validate(EvidenceProfile::EngineBacked)
             .map_err(|e| e.to_string())?;
         if self.envelope.run_status != RunStatus::Completed {
-            if self.contract.is_some()
-                || self.facts.is_some()
-                || self.report.is_some()
-                || self.domain.is_some()
-            {
-                return Err("failed run must not retain old payloads".into());
+            if self.contract.is_some() || self.facts.is_some() || self.report.is_some() {
+                return Err("failed run must not retain old successful payloads".into());
             }
-            return Ok(());
+            return super::runtime::verify_diagnostic(self);
         }
         verify_engine_artifacts(
             &self.envelope,

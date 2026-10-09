@@ -9,6 +9,15 @@ struct Header {
 }
 type ParsedSource = Result<(Vec<Requirement>, Vec<Acceptance>, Vec<TraceEdge>), (Terminal, String)>;
 pub fn parse(snapshot: &SourceSnapshot) -> ParseResult {
+    parse_controlled(snapshot, |_| Ok(())).expect("uncancellable parser callback")
+}
+
+/// Checkpoints surround each source; the established source grammar is unchanged.
+pub(crate) fn parse_controlled(
+    snapshot: &SourceSnapshot,
+    mut control: impl FnMut(Option<&SourceStatus>) -> Result<(), ()>,
+) -> Result<ParseResult, ()> {
+    control(None)?;
     let mut result = ParseResult {
         api_version: Version::V1,
         snapshot_digest: snapshot.digest.clone(),
@@ -44,11 +53,12 @@ pub fn parse(snapshot: &SourceSnapshot) -> ParseResult {
                 reason: "aggregate snapshot digest mismatch".into(),
             })
             .collect();
-        return result;
+        return Ok(result);
     }
     let start = std::time::Instant::now();
     let native_registry = openspec::load_registry(snapshot, start);
     for entry in &snapshot.inventory.entries {
+        control(None)?;
         let parsed = (|| -> ParsedSource {
             let bytes = snapshot
                 .contents
@@ -204,12 +214,13 @@ pub fn parse(snapshot: &SourceSnapshot) -> ParseResult {
                 reason,
             }),
         }
+        control(result.sources.last())?;
     }
     result.sources.sort();
     result.requirements.sort();
     result.acceptances.sort();
     result.edges.sort();
-    result
+    Ok(result)
 }
 fn identity(namespace: &str, id: &str) -> Result<Identity, (Terminal, String)> {
     if [namespace, id].iter().any(|s| {

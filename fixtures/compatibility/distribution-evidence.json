@@ -1,0 +1,24 @@
+{
+  "apiVersion": "specguard.distribution-evidence/v1",
+  "profile": "local-linux-source-development",
+  "pins": {
+    "gitguard": "95eb3d9e45dab9122f2f025c2b7767a981c61a60",
+    "guardengine": "6527e2a67cb55690330c95dd12b496dd878ed39b",
+    "specguard": "1ebf6363a38859293a1753a5485e65363210116d"
+  },
+  "sourceArchiveSha256": "a5c2a8d06fc80f7246027011ae399a38e4c3f09c2a1d29c87cccc73f51f87ce2",
+  "consumerLockSha256": "b41120cfdbe7c8c488523412cce8bed784f18025061948f6626ced279ac1d14a",
+  "guardPathsAllInsideBundle": true,
+  "registryDependenciesVendored": false,
+  "rust": "1.90.0",
+  "platform": "Linux x86_64",
+  "matrixTestsPassed": 2,
+  "sourceCases": 7,
+  "oldEngineArchive": {
+    "sourceCommit": "c80ec325449842d51007db2fd507040c53dc8f51",
+    "sha256": "da5b30c22c28c9db444a0ca9c214b9441c3b7aebd14c223606298547452189bc",
+    "matrixTestsPassed": 2,
+    "fullApiCompatibilityClaim": false
+  },
+  "productionRegistryRelease": false
+}

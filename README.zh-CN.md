@@ -1,4 +1,4 @@
-# Partme SpecGuard — 规格守卫
+# SpecGuard — 规格守卫
 
 [English](README.md) · [简体中文](README.zh-CN.md)
 

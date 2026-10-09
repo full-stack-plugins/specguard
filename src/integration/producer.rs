@@ -56,7 +56,7 @@ fn transport(code: &str) -> TransportDiagnostic {
 }
 // Counts borrowed serialized inputs before any source/policy clones or GE's
 // allocation-based envelope validation. Also bounds JSON escaping expansion.
-fn preflight<T: Serialize>(value: &T) -> Result<(), String> {
+pub(crate) fn preflight<T: Serialize>(value: &T) -> Result<(), String> {
     struct Counter(usize);
     impl std::io::Write for Counter {
         fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
@@ -274,7 +274,7 @@ struct DomainEvidence<'a> {
 // copies. Text/registry/AST work also receives a conservative byte multiplier.
 // This intentionally rejects some large but otherwise valid documents before
 // parser allocation; it is not a global allocator or OS memory limit.
-fn parser_preflight(snapshot: &SourceSnapshot) -> Result<(), String> {
+pub(crate) fn parser_preflight(snapshot: &SourceSnapshot) -> Result<(), String> {
     let mut cost = 0usize;
     let mut lines = 0usize;
     for entry in &snapshot.inventory.entries {

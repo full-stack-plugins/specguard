@@ -1,0 +1,30 @@
+{
+  "apiVersion": "specguard.domain/v1alpha1",
+  "roots": [
+    {
+      "path": "specs",
+      "format": "markdown-explicit/v1",
+      "namespace": "demo",
+      "authority": "primary"
+    },
+    {
+      "path": "adr.md",
+      "format": "markdown-adr/v1",
+      "namespace": "demo",
+      "authority": "primary"
+    },
+    {
+      "path": "tasks.md",
+      "format": "markdown-task/v1",
+      "namespace": "demo",
+      "authority": "primary"
+    }
+  ],
+  "limits": {
+    "maxFiles": 1000,
+    "maxBytes": 1048576,
+    "maxLines": 10000,
+    "maxDepth": 16,
+    "maxMillis": 5000
+  }
+}

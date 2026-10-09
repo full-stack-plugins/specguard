@@ -6,3 +6,5 @@ pub mod obligations;
 pub mod parser;
 pub mod rules;
 pub mod source;
+
+pub mod trace;

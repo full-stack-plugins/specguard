@@ -99,23 +99,27 @@ pub fn impact(
 
 /// Explicit target inventory for local typed graph evaluation. Kept outside the
 /// established ParseResult wire schema until a versioned source adapter exists.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+#[serde(rename_all = "snake_case")]
 pub enum TargetKind {
     Adr,
     Task,
 }
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TraceTarget {
     pub key: Identity,
     pub kind: TargetKind,
     pub source: SourceRef,
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TraceTargets {
     pub nodes: Vec<TraceTarget>,
     pub sources: Vec<SourceStatus>,
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TypedSpecificationGraph {
     pub graph: SpecificationGraph,
     pub targets: TraceTargets,

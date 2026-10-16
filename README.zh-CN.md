@@ -8,6 +8,8 @@
 
 运行 `specguard specs check --project 项目绝对目录 --source openspec|speckit` 检查既有原生结构；修复后重新 check，并用 `specs verify ... --baseline 绝对报告路径` 复验当前产物。详见 [范围、修复闭环和快照信任边界](docs/native-specs.md)。快照仅是未受信观察，不代表审批、实现或测试执行证据。
 
+运行 `specguard specs sources --project 项目绝对目录`（MCP `specguard_spec_sources`）只读适配 OpenSpec / Spec Kit / Superpowers 来源并提取带作用域的稳定需求 ID。未知或多事实源冲突保持未决，Superpowers 计划本身不作为另一需求事实源。参见 [支持格式、ID 稳定边界和信任限制](docs/specification-sources.md)。该观察入口不能产生已批准基线。
+
 运行 `specguard agents check --project 项目绝对目录` 检查六个 Guard 的提示注入和项目附加约定；`agents template` 返回审阅稿。参见 [使用及边界说明](docs/agents-context.md)、[插件](plugin/README.md)。AGENTS.md 官方不要求固定标题，六工具要求属于组织补充规范；文档 ALLOW 不表示智能体实际执行或审批通过。
 
 ## 解决什么问题

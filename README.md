@@ -8,6 +8,8 @@
 
 Use `specguard specs check --project ABSOLUTE_DIRECTORY --source openspec|speckit` and `specs verify ... --baseline ABSOLUTE_REPORT` for repeatable native-artifact checks. See [native scope, repair/recheck workflow and baseline trust](docs/native-specs.md). Successful snapshots are untrusted observations and never approval or implementation evidence.
 
+Use `specguard specs sources --project ABSOLUTE_DIRECTORY` (MCP `specguard_spec_sources`) for read-only OpenSpec / Spec Kit / Superpowers source observations and scoped stable requirement IDs. Unknown or competing sources remain unresolved; plans alone are not another requirement authority. See [supported formats, ID stability and trust boundaries](docs/specification-sources.md). This observation cannot generate an approved baseline.
+
 Use `specguard agents check --project ABSOLUTE_DIRECTORY` to check six Guard instruction blocks and optional additive project conventions; `agents template` returns a review draft without writing files. See [scope and usage](docs/agents-context.md) and [plugin](plugin/README.md). Required blocks are organization conventions, not official AGENTS.md fields. Document ALLOW never proves agent execution or approval.
 
 ## Why SpecGuard

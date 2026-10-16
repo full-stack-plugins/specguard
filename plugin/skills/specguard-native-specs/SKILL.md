@@ -1,10 +1,12 @@
 ---
 name: specguard-native-specs
-description: 检查既有 OpenSpec 或 Spec Kit 原生结构、需求标识与当前产物漂移，并完成检查、人工修复和复验闭环。
+description: 只读适配 OpenSpec、Spec Kit 和 Superpowers 来源及稳定需求 ID；检查既有 OpenSpec 或 Spec Kit 原生结构和产物漂移，完成审阅修复复验。
 license: Apache-2.0
 ---
 
 # 原生规格检查与摘要复验
+
+先用 `specguard specs sources --project PROJECT` 或 MCP `specguard_spec_sources({"project":"绝对目录"})` 获取 `specguard-sources/v1` 来源观察与作用域 ID。查看 authority_status、sources、requirements、diagnostics；unknown/unresolved/conflict 不得自动选源、复制正文或初始化。独立可读结果仍保留。Superpowers 仅识别项目显式 `REQ-ID: 内容` / `FR-ID: 内容`；自由文本缺 ID 保持不完整，plans 不作需求源。stable_id 在同逻辑作用域/原生 key 下跨行移动保持，重命名需显式映射，不猜测。此入口固定 local_unverified / not_evaluated / approved_baseline_eligible=false，不因退出 0 视为审批通过。详情见仓库 `docs/specification-sources.md`。
 
 1. 确认用户指定的绝对项目目录，读取项目指令、Git 状态及已有规格。用 `specguard spec context --project PROJECT` 只读识别体系，再依据当前需求确定唯一事实源。两体系并存时不自动选择，不初始化或安装新工具。
 2. 首选 MCP `specguard_check_specs`，参数 `{"project":"绝对目录","source":"openspec"}` 或 `speckit`。CLI 为 `specguard specs check --project PROJECT --source openspec|speckit`。来源由项目事实决定，不为了获得 ALLOW 改选另一体系。
@@ -14,4 +16,4 @@ license: Apache-2.0
 6. MCP `specguard_verify_specs` 参数增加 `"baseline":"绝对报告文件路径"`；CLI 为 `specguard specs verify --project PROJECT --source openspec|speckit --baseline ABSOLUTE_REPORT`。verify 重新读取来源，不信任旧报告的通过结论，对新增、删除、修改的产物逐项报告 baseline_drift。
 7. 漂移后先审阅实际差异和相应评审证据，再重新 check；不得自动刷新报告使 verify 通过。记录两次报告、实际测试和未完成项。输出始终 `approval_status=not_evaluated`、`execution_status=not_evaluated`。
 
-边界：当前仅支持 OpenSpec requirement/scenario 结构、Spec Kit FR 编号与字节摘要，不验证业务语义、需求到任务/测试的完整图、证据真实性或受保护批准基线。完整范围见仓库 `docs/native-specs.md`；GuardEngine 统一规格为 `professional-guard-checks`。
+边界：旧 check/verify 仅支持 OpenSpec requirement/scenario 结构、Spec Kit FR 编号与字节摘要；新 sources 支持三类来源观察，不验证业务语义、需求到任务/测试的完整图、证据真实性或受保护批准基线。完整范围见仓库 `docs/native-specs.md` 和 `docs/specification-sources.md`；新增来源适配沿用 `add-engineering-guard-core` 的 EG-S01/EG-SPEC-001，不另建规格。

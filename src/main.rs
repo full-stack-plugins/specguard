@@ -3,6 +3,7 @@ mod agents_check;
 mod agents_cli;
 mod agents_policy;
 mod markdown_document;
+mod spec_sources;
 mod specs_check;
 mod specs_cli;
 mod text_requirement;
@@ -38,7 +39,7 @@ fn main() -> ExitCode {
         }
         Some("--help" | "-h") | None => {
             println!(
-                "specguard: trace check|verify --project ABS --manifest ABS [--evidence ABS --public-key ABS] [--report ABS]; agents check|template --project ABSOLUTE_DIRECTORY; specs check|verify --project ABSOLUTE_DIRECTORY --source openspec|speckit [--baseline ABSOLUTE_REPORT]; install --agents codex,claude,gemini|none; uninstall; context; spec context; instructions render|sync; doctor --integration; serve --mcp\n只读结构检查不证明智能体执行、业务语义或审批通过。退出码 0=结构合规，2=违规/漂移，3=分析不完整，4=参数/基线错误。"
+                "specguard: specs sources --project ABSOLUTE_DIRECTORY; trace check|verify --project ABS --manifest ABS [--evidence ABS --public-key ABS] [--report ABS]; agents check|template --project ABSOLUTE_DIRECTORY; specs check|verify --project ABSOLUTE_DIRECTORY --source openspec|speckit [--baseline ABSOLUTE_REPORT]; install --agents codex,claude,gemini|none; uninstall; context; spec context; instructions render|sync; doctor --integration; serve --mcp\n只读结构检查不证明智能体执行、业务语义或审批通过。退出码 0=结构合规，2=违规/漂移，3=分析不完整/来源冲突，4=参数/基线错误。"
             );
             ExitCode::SUCCESS
         }

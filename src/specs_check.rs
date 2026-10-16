@@ -38,7 +38,8 @@ fn linked(meta: &fs::Metadata) -> bool {
 }
 
 // 每个目录段都拒绝链接；有界读取避免目录逃逸、无限递归和资源耗尽。
-fn collect(
+/// 有界枚举已确认的来源根；返回原生相对文件路径，不读取或执行内容。
+pub(crate) fn collect(
     root: &Path,
     relative: &str,
     depth: usize,

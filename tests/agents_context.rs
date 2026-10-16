@@ -90,8 +90,18 @@ fn examples_comments_and_duplicate_blocks_do_not_pass() {
     for fake in [
         format!("```markdown\n{template}\n```"),
         format!("~~~\n{template}\n~~~"),
-        template.lines().map(|l| format!("    {l}\n")).collect(),
-        template.lines().map(|l| format!("> {l}\n")).collect(),
+        template.lines().fold(String::new(), |mut text, line| {
+            text.push_str("    ");
+            text.push_str(line);
+            text.push('\n');
+            text
+        }),
+        template.lines().fold(String::new(), |mut text, line| {
+            text.push_str("> ");
+            text.push_str(line);
+            text.push('\n');
+            text
+        }),
         format!("<!--\n{template}\n-->"),
         format!("{template}\n{template}"),
     ] {
@@ -174,7 +184,7 @@ fn mcp_matches_cli_and_neither_executes_nor_writes() {
         .lines()
         .map(|s| serde_json::from_str(s).unwrap())
         .collect();
-    assert_eq!(replies[1]["result"]["tools"].as_array().unwrap().len(), 8);
+    assert_eq!(replies[1]["result"]["tools"].as_array().unwrap().len(), 9);
     let result: Value =
         serde_json::from_str(replies[2]["result"]["content"][0]["text"].as_str().unwrap()).unwrap();
     assert_eq!(result, f.call("check", 0));

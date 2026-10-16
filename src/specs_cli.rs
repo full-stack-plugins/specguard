@@ -3,6 +3,13 @@ use std::path::Path;
 
 /// 分发原生规格只读检查和复验；要求显式来源，避免自动选择冲突事实源。
 pub(crate) fn run(args: &[String]) -> Result<(Value, u8), String> {
+    if args.len() == 4 && args[0] == "specs" && args[1] == "sources" && args[2] == "--project" {
+        let project = Path::new(&args[3]);
+        if !project.is_absolute() || !project.is_dir() {
+            return Err("project must be an existing absolute directory".into());
+        }
+        return crate::spec_sources::check(&project.canonicalize().map_err(|e| e.to_string())?);
+    }
     if args.len() < 6
         || args[0] != "specs"
         || args[2] != "--project"

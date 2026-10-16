@@ -1,5 +1,7 @@
 # SpecGuard plugin
 
+`specguard-native-specs` 现增加 `specs sources --project ABS` / MCP `specguard_spec_sources`：只读提取 OpenSpec、Spec Kit、Superpowers 显式需求 ID 与来源状态，未知/双来源不自动选择。Superpowers 自由文本缺显式编号时保持不完整；计划不是另一需求事实源。详见 [来源适配边界](../docs/specification-sources.md)。不颁发审批或自签可信证据。
+
 Agent Plugins 1.0.0 可移植包；包含 specguard-agents-context 技能及 stdio MCP 配置。依赖可从宿主 PATH 找到的 SpecGuard 0.2.0 或更新兼容版本；包不自动安装二进制。
 
 新增 `specguard-native-specs` 技能及 MCP `specguard_check_specs`、`specguard_verify_specs`：显式选择原生 OpenSpec/Spec Kit，检查结构、输出文件摘要，再以成功观察报告复验漂移。CLI 为 `specs check` / `specs verify`，详见 [范围与信任边界](../docs/native-specs.md)。不把任务勾选或文件存在当作实现证据；快照不等于批准基线。

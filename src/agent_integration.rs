@@ -3,6 +3,12 @@ use serde_json::{Value, json};
 
 const DOMAIN_TOOLS: &[DomainTool] = &[
     DomainTool {
+        name: "specguard_spec_sources",
+        description: "Read-only native OpenSpec/Spec Kit/Superpowers sources and scoped requirement IDs. Unknown/conflicting authority remains unresolved; never initializes or approves a baseline.",
+        schema,
+        call: spec_sources,
+    },
+    DomainTool {
         name: "specguard_check_trace",
         description: "Read-only declared native requirement/source/test linkage; PASS requires current signed execution and explicit external trust anchor. No semantic or approval claim.",
         schema: trace_schema,
@@ -45,11 +51,12 @@ pub(crate) fn tool() -> guard_install::Tool {
     let mut tool = guard_install::Tool::new(
         "specguard",
         env!("CARGO_PKG_VERSION"),
-        "开始需求、设计或实现前运行 agents check 检查根 AGENTS.md 的 six-guard-context/v1 组织约定与 .specguard/agents-policy.json 附加义务；用 agents template 生成只读审阅稿，修复后重新 check。用 spec context 确认唯一原生规格，不重复初始化第二套体系。运行 specs check --project ABS --source openspec|speckit 检查原生结构并记录产物SHA256；修复后重新check，再用 specs verify --baseline ABS_REPORT 复验当前产物是否漂移。快照不是批准基线，不自动接受新基线。核心需求、非目标和验收条件变更需相应评审。文档合规不代表智能体实际执行、安装或审批通过；用 trace check/verify 核对显式需求、代码marker及真实测试证据关联；必须显式manifest、外部信任公钥和当前签名执行证据才能PASS。关联不证明业务语义。",
+        "开始需求、设计或实现前运行 agents check 检查根 AGENTS.md 的 six-guard-context/v1 组织约定与 .specguard/agents-policy.json 附加义务；用 agents template 生成只读审阅稿，修复后重新 check。先用 specs sources --project ABS 只读观察 OpenSpec、Spec Kit、Superpowers 来源与作用域需求ID；未知/多来源冲突保持未决，plans不作需求源，缺显式ID不编造。该报告不选择审批事实源、不产生已批准基线；不重复初始化第二套体系。运行 specs check --project ABS --source openspec|speckit 检查原生结构并记录产物SHA256；修复后重新check，再用 specs verify --baseline ABS_REPORT 复验当前产物是否漂移。快照不是批准基线，不自动接受新基线。核心需求、非目标和验收条件变更需相应评审。文档合规不代表智能体实际执行、安装或审批通过；用 trace check/verify 核对显式需求、代码marker及真实测试证据关联；必须显式manifest、外部信任公钥和当前签名执行证据才能PASS。关联不证明业务语义。",
         &[
             "agents check",
             "agents template",
             "specs check",
+            "specs sources",
             "specs verify",
             "trace check",
             "trace verify",
@@ -84,6 +91,23 @@ fn check(args: &Value) -> Result<Value, String> {
 }
 fn template(args: &Value) -> Result<Value, String> {
     invoke(args, "template")
+}
+
+fn spec_sources(args: &Value) -> Result<Value, String> {
+    let object = args.as_object().ok_or("arguments must be an object")?;
+    if object.len() != 1 || !object.contains_key("project") {
+        return Err("only project is accepted; source priority cannot be overridden".into());
+    }
+    let project = object["project"]
+        .as_str()
+        .ok_or("project string required")?;
+    crate::specs_cli::run(&[
+        "specs".into(),
+        "sources".into(),
+        "--project".into(),
+        project.into(),
+    ])
+    .map(|(value, _)| value)
 }
 
 fn specs_schema() -> Value {

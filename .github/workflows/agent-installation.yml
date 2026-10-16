@@ -1,0 +1,36 @@
+name: Guard agent installation
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  integration:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: specguard
+      - uses: actions/checkout@v4
+        with:
+          repository: full-stack-plugins/guardengine
+          path: guardengine
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build actual CLI
+        working-directory: specguard
+        run: cargo build --locked 
+      - name: Check document governance
+        working-directory: specguard
+        run: cargo test --locked
+      - name: Exercise installation and MCP in isolated fixtures
+        working-directory: specguard
+        run: python -B ../guardengine/scripts/verify_guard_installation.py --bin-dir target/debug --tools specguard
+      - name: Verify portable package and stdio discovery
+        working-directory: specguard
+        run: python -B ../guardengine/scripts/verify_guard_packages.py --repositories-root .. --bin-dir target/debug --tools specguard

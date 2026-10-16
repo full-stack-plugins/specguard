@@ -4,7 +4,11 @@
 
 **Deterministic requirements, specification and acceptance governance for AI-native software engineering.**
 
-> **Status: architecture and technical design are complete as documents; runtime implementation has not started.** Planned commands in this README are not yet available.
+> **Status: 0.2.0 implements AGENTS.md organization-convention checks and native OpenSpec / Spec Kit structural checks, artifact SHA256 drift verification, CLI/MCP and plugin skills.** Declared native requirement/source/test linkage with signed current execution is implemented; business semantic correctness and protected approved-baseline checks remain outside this claim. See [trace evidence](docs/trace-evidence.md).
+
+Use `specguard specs check --project ABSOLUTE_DIRECTORY --source openspec|speckit` and `specs verify ... --baseline ABSOLUTE_REPORT` for repeatable native-artifact checks. See [native scope, repair/recheck workflow and baseline trust](docs/native-specs.md). Successful snapshots are untrusted observations and never approval or implementation evidence.
+
+Use `specguard agents check --project ABSOLUTE_DIRECTORY` to check six Guard instruction blocks and optional additive project conventions; `agents template` returns a review draft without writing files. See [scope and usage](docs/agents-context.md) and [plugin](plugin/README.md). Required blocks are organization conventions, not official AGENTS.md fields. Document ALLOW never proves agent execution or approval.
 
 ## Why SpecGuard
 
@@ -32,7 +36,7 @@ SpecGuard owns stable requirement IDs, specification references, completeness ch
 
 **ENFORCE** applies only to deterministic constraints such as duplicate IDs, broken links and unauthorized removal of approved criteria. **REVIEW** handles ambiguous wording, missing business scenarios and design trade-offs. Missing source coverage is **INDETERMINATE**, not PASS.
 
-SpecGuard reuses [GuardEngine](https://github.com/full-stack-plugins/guardengine) Guard Protocol. The current v1alpha1 engine supports only exact forbidden-relation assertions; planned collection and traceability checks require SpecGuard-specific validation or a versioned protocol extension.
+The planned specification graph integrates with [GuardEngine](https://github.com/full-stack-plugins/guardengine) Guard Protocol. Implemented checkers return their own versioned reports; these are not delivery authorization reports. Exact-byte observation drift is implemented; approved-baseline enforcement and full traceability remain planned.
 
 ## Detailed documents
 
@@ -48,6 +52,20 @@ specguard trace --requirement REQ-017
 specguard diff --base <approved-ref> --head HEAD
 ~~~
 
-The first implementation will deliver read-only source discovery and exact graph/ID checks. Later stages will add protected baseline enforcement, cross-Guard evidence and MCP/CI integration. Source files must remain the project's existing truth; there is no implicit initialization, installation or approval issuance.
+Current native CLI/MCP checks cover supported structure, scoped IDs and exact artifact drift. Later stages will add complete trace graphs, protected baseline enforcement and cross-Guard evidence. Source files remain the project's existing truth; there is no implicit initialization, installation or approval issuance.
 
-See [all Partme Guard repositories](https://github.com/orgs/full-stack-plugins/repositories). No binary, installer, hosted service or signed attestation is claimed for SpecGuard at this point.
+See [all Partme Guard repositories](https://github.com/orgs/full-stack-plugins/repositories). Source builds and managed installation are available; no hosted service or signed attestation is claimed.
+
+## Agent installation and managed instructions
+
+The shared installer provides `install`, `uninstall`, `context`, `instructions render|sync`, `doctor --integration`, and `serve --mcp` for Codex, Claude Code, and Gemini CLI. Each tool renders its own managed block.
+
+```sh
+cargo build --locked
+specguard install --agents codex,claude,gemini --project /absolute/project --bin-dir /absolute/bin --dry-run
+specguard context --project /absolute/project
+```
+
+After building, invoke the executable under `target/debug/` (with `.exe` on Windows); short commands above assume PATH is configured. `--bin-dir` copies the current executable; PATH is not changed automatically. Remove `--dry-run` to apply. A sibling `../guardengine/crates/guard-install` source checkout is required.
+
+[Shared design, host mapping, update/uninstall and verification](https://github.com/full-stack-plugins/guardengine/blob/main/docs/agent-installation.md). Configuration success does not prove host loading or quality approval.

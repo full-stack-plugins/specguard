@@ -4,7 +4,11 @@
 
 **面向 AI 原生研发的需求、规格与验收基线守卫。**
 
-> **当前状态：已完成详细架构与技术方案文档，尚未实现可执行的 SpecGuard CLI、MCP 或 CI 门禁。** 下方命令只是目标接口。
+> **当前状态：0.2.0 已实现 AGENTS.md 组织约定检查、原生 OpenSpec / Spec Kit 结构检查、产物 SHA256 漂移复验、CLI/MCP 及插件技能。** 业务语义、完整追踪图和受保护批准基线检查仍为规划能力。
+
+运行 `specguard specs check --project 项目绝对目录 --source openspec|speckit` 检查既有原生结构；修复后重新 check，并用 `specs verify ... --baseline 绝对报告路径` 复验当前产物。详见 [范围、修复闭环和快照信任边界](docs/native-specs.md)。快照仅是未受信观察，不代表审批、实现或测试执行证据。
+
+运行 `specguard agents check --project 项目绝对目录` 检查六个 Guard 的提示注入和项目附加约定；`agents template` 返回审阅稿。参见 [使用及边界说明](docs/agents-context.md)、[插件](plugin/README.md)。AGENTS.md 官方不要求固定标题，六工具要求属于组织补充规范；文档 ALLOW 不表示智能体实际执行或审批通过。
 
 ## 解决什么问题
 
@@ -46,3 +50,19 @@ specguard trace --requirement REQ-017
 ~~~
 
 第一阶段建立可靠的只读事实提取与结构检查，后续增加批准基线差异、独立 CI 和多守卫协同。**绝不把自然语言理解或模型评分当成强制放行证据。**
+
+## 智能体安装与提示注入
+
+已接入共享安装器：`install`、`uninstall`、`context`、`instructions render|sync`、`doctor --integration`、`serve --mcp`。支持 Codex、Claude Code 和 Gemini CLI；按本工具职责生成独立标记区块。
+
+```sh
+cargo build --locked
+specguard install --agents codex,claude,gemini --project /absolute/project --bin-dir /absolute/bin --dry-run
+specguard context --project /absolute/project
+```
+
+构建后请先通过 `target/debug/工具名`（Windows 加 `.exe`）调用；上面的短命令假定程序已加入 PATH。指定 `--bin-dir` 会复制当前二进制，安装器不自动修改 PATH；去掉 `--dry-run` 才实际安装。需要同级 `../guardengine/crates/guard-install` 源码。
+
+[统一设计、宿主文件映射、更新、卸载和验证说明](https://github.com/full-stack-plugins/guardengine/blob/main/docs/agent-installation.md)。安装成功不代表宿主已加载或专业检查通过。
+
+需求到代码标记声明、测试执行证据关联已实现：见 [追踪协议](docs/trace-evidence.md)，不宣称语义正确或审批通过。

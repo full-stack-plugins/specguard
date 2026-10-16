@@ -1,0 +1,8 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "specguard",
+  "version": "0.2.0",
+  "description": "AGENTS.md conventions, native specification structure checks and read-only artifact drift verification",
+  "license": "Apache-2.0",
+  "keywords": ["specifications", "agents", "guardrails"]
+}

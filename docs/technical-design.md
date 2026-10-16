@@ -2,6 +2,8 @@
 
 > 状态：待实现的技术基线（V0.1），不代表已有 CLI、MCP 或 CI 门禁。
 
+增量实现说明：AGENTS 约定能力见 [agents-context](agents-context.md)；原生结构与产物摘要复验见 [native-specs](native-specs.md)。本文完整追踪图、批准基线和跨 Guard 证据仍为目标设计，不因局部检查实现而声称完成。
+
 ## 1. 技术栈
 
 Rust 2024、Serde、JSON Schema、按需 Tokio/Clap；Markdown AST + OpenSpec/Spec Kit/Superpowers 只读适配；首期内存图，后续按需 SQLite 索引缓存；GuardEngine SDK 负责通用契约/规则/证据机制；可选 rmcp 和 GitHub Actions。**不得将规范解析器、审批服务或图数据库硬塞进 GuardEngine。**
